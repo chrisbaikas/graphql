@@ -40,6 +40,7 @@ function showDashboard() {
 function loadProfile() {
   loadUserSection();
   loadXpSection();
+  loadGradesSection();
 }
 
 // Ticket 5 — Section 1: basic user identification.
@@ -87,6 +88,38 @@ function formatXp(bytes) {
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(2)} MB`;
   if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(2)} kB`;
   return `${bytes} B`;
+}
+
+// Ticket 7 — Section 3: audit ratio (XP given vs received), matching the
+// platform profile's "Done" (up) / "Received" (down) figures.
+async function loadGradesSection() {
+  const doneEl = document.getElementById("audit-done");
+  const receivedEl = document.getElementById("audit-received");
+  const ratioEl = document.getElementById("audit-ratio");
+
+  try {
+    // "With arguments" query: only up/down transactions are audit XP.
+    const auditData = await graphqlRequest(
+      `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
+    );
+    const transactions = auditData.transaction || [];
+    let done = 0; // XP given to others (audits done)
+    let received = 0; // XP received from others (audits on you)
+    for (const t of transactions) {
+      if (t.type === "up") done += t.amount || 0;
+      else if (t.type === "down") received += t.amount || 0;
+    }
+    const ratio = received > 0 ? (done / received).toFixed(1) : "—";
+
+    if (doneEl) doneEl.textContent = formatXp(done);
+    if (receivedEl) receivedEl.textContent = formatXp(received);
+    if (ratioEl) ratioEl.textContent = ratio;
+  } catch (err) {
+    if (doneEl) doneEl.textContent = "—";
+    if (receivedEl) receivedEl.textContent = "—";
+    if (ratioEl) ratioEl.textContent = "—";
+    showError(`Could not load audit ratio: ${err.message}`);
+  }
 }
 
 /* ---------------- LOGIN ---------------- */

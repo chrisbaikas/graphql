@@ -275,24 +275,17 @@ Display the user's total XP — the second required section.
 
 ## Ticket 7 — Section 3: Grades / Audits
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:** Three required sections (section 3/3); data accuracy.
 
 ### Goal
-Display the third required section: project results and the **audit ratio**
-(explicitly mentioned in instructions.md, missing from the previous tracker).
+Display the third required section: the **audit ratio** — XP given (Done) vs
+received (Received) — matching how the platform profile presents it. (Pass/fail
+project counts were dropped: they don't correspond to anything shown on the
+platform and the raw `result` table conflates projects with piscine exercises.)
 
-### Queries
-Pass / fail results:
-```graphql
-{
-  result {
-    grade
-    path
-  }
-}
-```
+### Query
 Audit ratio (XP given vs received):
 ```graphql
 {
@@ -304,12 +297,18 @@ Audit ratio (XP given vs received):
 ```
 
 ### UI
-- [ ] Passed vs failed project counts (`grade >= 1` = pass)
-- [ ] Audit ratio = total `up` / total `down`
+- [x] Done (sum of `up`) and Received (sum of `down`), byte-formatted
+- [x] Audit ratio = total `up` / total `down`
 
 ### Acceptance criteria
-- [ ] Pass/fail counts match GraphiQL
-- [ ] Audit ratio matches the value shown on the platform profile
+- [x] Audit ratio matches the value shown on the platform profile (0.8 confirmed)
+
+### Implementation notes
+- Markup: `#grades-section` card with `#audit-done`, `#audit-received`, `#audit-ratio`.
+- `loadGradesSection()` runs via `loadProfile()`; per-section try/catch like T5/T6.
+- Audit ratio: `transaction(where: { type: { _in: ["up","down"] } })` (**with
+  arguments**), ratio = sum(up) / sum(down), 1 decimal place. Done/Received
+  rendered via `formatXp()`.
 
 ---
 
