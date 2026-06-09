@@ -105,6 +105,25 @@ button:disabled {
   background: #475569;
 }
 
+/* ---- Section expand/collapse controls ---- */
+.section-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.btn-secondary {
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
 /* ---- Profile cards ---- */
 .card {
   background: #1e293b;
