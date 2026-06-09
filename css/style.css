@@ -23,6 +23,26 @@ button {
   cursor: pointer;
 }
 
+/* ---- Dashboard header: title centred, logout top-right ---- */
+.dashboard-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-header h1 {
+  grid-column: 2;
+  margin: 0;
+  text-align: center;
+}
+
+/* Logout sits in the right column, pushed to the far right. */
+.dashboard-header #logout-btn {
+  grid-column: 3;
+  justify-self: end;
+}
+
 /* ---- Profile cards ---- */
 .card {
   background: #1e293b;
