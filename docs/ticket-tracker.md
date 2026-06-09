@@ -275,7 +275,7 @@ Display the user's total XP — the second required section.
 
 ## Ticket 7 — Section 3: Grades / Audits
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:** Three required sections (section 3/3); data accuracy.
 
@@ -304,12 +304,20 @@ Audit ratio (XP given vs received):
 ```
 
 ### UI
-- [ ] Passed vs failed project counts (`grade >= 1` = pass)
-- [ ] Audit ratio = total `up` / total `down`
+- [x] Passed vs failed project counts (`grade >= 1` = pass)
+- [x] Audit ratio = total `up` / total `down`
 
 ### Acceptance criteria
-- [ ] Pass/fail counts match GraphiQL
-- [ ] Audit ratio matches the value shown on the platform profile
+- [ ] Pass/fail counts match GraphiQL (manual — see T13)
+- [ ] Audit ratio matches the value shown on the platform profile (manual — see T13)
+
+### Implementation notes
+- Markup: `#grades-section` card with `#projects-passed`, `#projects-failed`,
+  `#audit-ratio`.
+- `loadGradesSection()` runs via `loadProfile()`; per-section try/catch like T5/T6.
+- Pass/fail: `{ result { grade } }` (**normal** query), `grade >= 1` = pass.
+- Audit ratio: `transaction(where: { type: { _in: ["up","down"] } })` (**with
+  arguments**), ratio = sum(up) / sum(down), 1 decimal place.
 
 ---
 

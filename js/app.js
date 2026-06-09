@@ -40,6 +40,7 @@ function showDashboard() {
 function loadProfile() {
   loadUserSection();
   loadXpSection();
+  loadGradesSection();
 }
 
 // Ticket 5 — Section 1: basic user identification.
@@ -87,6 +88,47 @@ function formatXp(bytes) {
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(2)} MB`;
   if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(2)} kB`;
   return `${bytes} B`;
+}
+
+// Ticket 7 — Section 3: grades (pass/fail) and audit ratio.
+async function loadGradesSection() {
+  const passedEl = document.getElementById("projects-passed");
+  const failedEl = document.getElementById("projects-failed");
+  const ratioEl = document.getElementById("audit-ratio");
+
+  try {
+    // Pass/fail results — a "normal" query. grade >= 1 counts as a pass.
+    const resultData = await graphqlRequest(`{ result { grade } }`);
+    const results = resultData.result || [];
+    let passed = 0;
+    let failed = 0;
+    for (const r of results) {
+      if (r.grade >= 1) passed++;
+      else failed++;
+    }
+
+    // Audit ratio — XP given (up) vs received (down). "With arguments" query.
+    const auditData = await graphqlRequest(
+      `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
+    );
+    const transactions = auditData.transaction || [];
+    let up = 0;
+    let down = 0;
+    for (const t of transactions) {
+      if (t.type === "up") up += t.amount || 0;
+      else if (t.type === "down") down += t.amount || 0;
+    }
+    const ratio = down > 0 ? (up / down).toFixed(1) : "—";
+
+    if (passedEl) passedEl.textContent = passed;
+    if (failedEl) failedEl.textContent = failed;
+    if (ratioEl) ratioEl.textContent = ratio;
+  } catch (err) {
+    if (passedEl) passedEl.textContent = "—";
+    if (failedEl) failedEl.textContent = "—";
+    if (ratioEl) ratioEl.textContent = "—";
+    showError(`Could not load grades/audits: ${err.message}`);
+  }
 }
 
 /* ---------------- LOGIN ---------------- */
