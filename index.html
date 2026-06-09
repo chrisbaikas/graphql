@@ -10,21 +10,23 @@
 
   <!-- LOGIN VIEW -->
   <section id="login-view">
-    <h1>Login</h1>
+    <div class="login-card">
+      <h1>Login</h1>
 
-    <form id="login-form">
-      <label for="username">Username or email</label>
-      <input type="text" id="username" name="username"
-             placeholder="username or email" autocomplete="username" required>
+      <form id="login-form">
+        <label for="username">Username or email</label>
+        <input type="text" id="username" name="username"
+               placeholder="username or email" autocomplete="username" required>
 
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password"
-             placeholder="password" autocomplete="current-password" required>
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password"
+               placeholder="password" autocomplete="current-password" required>
 
-      <button type="submit" id="login-btn">Login</button>
-    </form>
+        <button type="submit" id="login-btn">Login</button>
+      </form>
 
-    <p id="error" role="alert"></p>
+      <p id="error" class="error" role="alert"></p>
+    </div>
   </section>
 
   <!-- DASHBOARD VIEW -->

@@ -38,11 +38,26 @@ function showDashboard() {
 // Loads every dashboard section. Each section loader handles its own errors so
 // one failing query doesn't blank the whole profile.
 function loadProfile() {
+  showLoading();
   loadUserSection();
   loadXpSection();
   loadGradesSection();
   loadRecentSection();
   loadStatsSection();
+}
+
+// Show a "Loading…" hint in every value slot until each section's data arrives.
+function showLoading() {
+  const profile = document.getElementById("profile");
+  if (!profile) return;
+  for (const dd of profile.querySelectorAll(".info dd")) {
+    dd.textContent = "Loading…";
+  }
+  const recent = document.getElementById("recent-list");
+  if (recent) recent.innerHTML = "<li>Loading…</li>";
+  for (const box of profile.querySelectorAll(".graph-box")) {
+    box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
+  }
 }
 
 // Ticket 5 — Section 1: basic user identification.
@@ -102,6 +117,24 @@ function formatDate(ms) {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
+// Fetch audit XP totals once: XP given to others (Done = "up") and received
+// from others (Received = "down"). Shared by the audit section (T7) and the
+// audit graph (T11) so the up/down query runs a single time.
+// Uses a "with arguments" GraphQL query.
+async function fetchAuditTotals() {
+  const data = await graphqlRequest(
+    `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
+  );
+  const transactions = data.transaction || [];
+  let done = 0;
+  let received = 0;
+  for (const t of transactions) {
+    if (t.type === "up") done += t.amount || 0;
+    else if (t.type === "down") received += t.amount || 0;
+  }
+  return { done, received };
+}
+
 // Ticket 7 — Section 3: audit ratio (XP given vs received), matching the
 // platform profile's "Done" (up) / "Received" (down) figures.
 async function loadGradesSection() {
@@ -110,17 +143,7 @@ async function loadGradesSection() {
   const ratioEl = document.getElementById("audit-ratio");
 
   try {
-    // "With arguments" query: only up/down transactions are audit XP.
-    const auditData = await graphqlRequest(
-      `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
-    );
-    const transactions = auditData.transaction || [];
-    let done = 0; // XP given to others (audits done)
-    let received = 0; // XP received from others (audits on you)
-    for (const t of transactions) {
-      if (t.type === "up") done += t.amount || 0;
-      else if (t.type === "down") received += t.amount || 0;
-    }
+    const { done, received } = await fetchAuditTotals();
     const ratio = received > 0 ? (done / received).toFixed(1) : "—";
 
     if (doneEl) doneEl.textContent = formatXp(done);
@@ -248,7 +271,39 @@ function setupGraphModal() {
   });
 }
 
-setupGraphModal();
+// Shared chart geometry, reused by both SVG graphs so they stay visually
+// consistent and the magic numbers live in one place.
+const CHART = {
+  W: 480,
+  H: 260,
+  pad: { top: 16, right: 16, bottom: 28, left: 52 },
+  axis: "#475569",
+  label: "#94a3b8",
+  value: "#e2e8f0"
+};
+CHART.plotW = CHART.W - CHART.pad.left - CHART.pad.right;
+CHART.plotH = CHART.H - CHART.pad.top - CHART.pad.bottom;
+
+// Draw the L-shaped X/Y axes into an existing <svg>. Returns nothing — callers
+// add their own data marks and labels on top.
+function drawAxes(svg) {
+  const { pad, plotW, plotH, axis } = CHART;
+  svg.appendChild(svgEl("line", {
+    x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
+    stroke: axis, "stroke-width": 1
+  }));
+  svg.appendChild(svgEl("line", {
+    x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
+    stroke: axis, "stroke-width": 1
+  }));
+}
+
+// Convenience: an SVG <text> node with content and sensible label defaults.
+function svgText(content, attrs = {}) {
+  const el = svgEl("text", { "font-size": 11, fill: CHART.label, ...attrs });
+  el.textContent = content;
+  return el;
+}
 
 // Ticket 10 — SVG Graph #1: cumulative XP over time (line chart).
 async function drawXpGraph() {
@@ -279,13 +334,7 @@ async function drawXpGraph() {
       return { x: new Date(t.createdAt).getTime(), y: running };
     });
 
-    // ---- coordinate space ----
-    const W = 480;
-    const H = 260;
-    const pad = { top: 16, right: 16, bottom: 28, left: 52 };
-    const plotW = W - pad.left - pad.right;
-    const plotH = H - pad.top - pad.bottom;
-
+    const { pad, plotW, plotH } = CHART;
     const xMin = points[0].x;
     const xMax = points[points.length - 1].x;
     const yMax = points[points.length - 1].y; // cumulative, so last is largest
@@ -295,50 +344,29 @@ async function drawXpGraph() {
     const sx = (x) => pad.left + ((x - xMin) / xSpan) * plotW;
     const sy = (y) => pad.top + plotH - (y / ySpan) * plotH;
 
-    const svg = createSvg(W, H);
+    const svg = createSvg(CHART.W, CHART.H);
     svg.setAttribute("aria-label", "Cumulative XP over time");
+    drawAxes(svg);
 
-    // ---- axes ----
-    svg.appendChild(svgEl("line", {
-      x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
-      stroke: "#475569", "stroke-width": 1
+    // Y axis labels (0 and max)
+    svg.appendChild(svgText("0", {
+      x: pad.left - 6, y: pad.top + plotH,
+      "text-anchor": "end", "dominant-baseline": "middle"
     }));
-    svg.appendChild(svgEl("line", {
-      x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
-      stroke: "#475569", "stroke-width": 1
+    svg.appendChild(svgText(formatXp(yMax), {
+      x: pad.left - 6, y: pad.top,
+      "text-anchor": "end", "dominant-baseline": "middle"
     }));
 
-    // ---- Y axis labels (0 and max) ----
-    const yLabel0 = svgEl("text", {
-      x: pad.left - 6, y: pad.top + plotH, "text-anchor": "end",
-      "dominant-baseline": "middle", fill: "#94a3b8", "font-size": 11
-    });
-    yLabel0.textContent = "0";
-    svg.appendChild(yLabel0);
+    // X axis labels (first and last date)
+    svg.appendChild(svgText(formatDate(xMin), {
+      x: pad.left, y: pad.top + plotH + 16, "text-anchor": "start"
+    }));
+    svg.appendChild(svgText(formatDate(xMax), {
+      x: pad.left + plotW, y: pad.top + plotH + 16, "text-anchor": "end"
+    }));
 
-    const yLabelMax = svgEl("text", {
-      x: pad.left - 6, y: pad.top, "text-anchor": "end",
-      "dominant-baseline": "middle", fill: "#94a3b8", "font-size": 11
-    });
-    yLabelMax.textContent = formatXp(yMax);
-    svg.appendChild(yLabelMax);
-
-    // ---- X axis labels (first and last date) ----
-    const xLabelStart = svgEl("text", {
-      x: pad.left, y: pad.top + plotH + 16, "text-anchor": "start",
-      fill: "#94a3b8", "font-size": 11
-    });
-    xLabelStart.textContent = formatDate(xMin);
-    svg.appendChild(xLabelStart);
-
-    const xLabelEnd = svgEl("text", {
-      x: pad.left + plotW, y: pad.top + plotH + 16, "text-anchor": "end",
-      fill: "#94a3b8", "font-size": 11
-    });
-    xLabelEnd.textContent = formatDate(xMax);
-    svg.appendChild(xLabelEnd);
-
-    // ---- the cumulative line ----
+    // The cumulative line
     const polyPoints = points.map((p) => `${sx(p.x)},${sy(p.y)}`).join(" ");
     svg.appendChild(svgEl("polyline", {
       points: polyPoints, fill: "none", stroke: "#38bdf8", "stroke-width": 2
@@ -359,16 +387,7 @@ async function drawAuditGraph() {
   if (!box) return;
 
   try {
-    const data = await graphqlRequest(
-      `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
-    );
-    const transactions = data.transaction || [];
-    let done = 0;
-    let received = 0;
-    for (const t of transactions) {
-      if (t.type === "up") done += t.amount || 0;
-      else if (t.type === "down") received += t.amount || 0;
-    }
+    const { done, received } = await fetchAuditTotals();
 
     if (done === 0 && received === 0) {
       box.innerHTML = '<p class="graph-placeholder">No audit data yet.</p>';
@@ -380,28 +399,14 @@ async function drawAuditGraph() {
       { label: "Received", value: received, color: "#f97316" }
     ];
 
-    // ---- coordinate space ----
-    const W = 480;
-    const H = 260;
-    const pad = { top: 16, right: 16, bottom: 28, left: 52 };
-    const plotW = W - pad.left - pad.right;
-    const plotH = H - pad.top - pad.bottom;
+    const { pad, plotW, plotH } = CHART;
     const max = Math.max(done, received) || 1;
 
-    const svg = createSvg(W, H);
+    const svg = createSvg(CHART.W, CHART.H);
     svg.setAttribute("aria-label", "Audit XP done vs received");
+    drawAxes(svg);
 
-    // ---- axes ----
-    svg.appendChild(svgEl("line", {
-      x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
-      stroke: "#475569", "stroke-width": 1
-    }));
-    svg.appendChild(svgEl("line", {
-      x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
-      stroke: "#475569", "stroke-width": 1
-    }));
-
-    // ---- bars ----
+    // Bars, each with a value label above and a category label below.
     const slot = plotW / bars.length;
     const barW = slot * 0.5;
     bars.forEach((bar, i) => {
@@ -412,22 +417,12 @@ async function drawAuditGraph() {
       svg.appendChild(svgEl("rect", {
         x, y, width: barW, height: h, fill: bar.color, rx: 3
       }));
-
-      // value label above each bar
-      const valEl = svgEl("text", {
-        x: x + barW / 2, y: y - 5, "text-anchor": "middle",
-        fill: "#e2e8f0", "font-size": 11
-      });
-      valEl.textContent = formatXp(bar.value);
-      svg.appendChild(valEl);
-
-      // category label under the axis
-      const catEl = svgEl("text", {
-        x: x + barW / 2, y: pad.top + plotH + 16, "text-anchor": "middle",
-        fill: "#94a3b8", "font-size": 11
-      });
-      catEl.textContent = bar.label;
-      svg.appendChild(catEl);
+      svg.appendChild(svgText(formatXp(bar.value), {
+        x: x + barW / 2, y: y - 5, "text-anchor": "middle", fill: CHART.value
+      }));
+      svg.appendChild(svgText(bar.label, {
+        x: x + barW / 2, y: pad.top + plotH + 16, "text-anchor": "middle"
+      }));
     });
 
     box.innerHTML = "";
@@ -514,12 +509,27 @@ if (logoutBtn) {
 
 // Single source of truth for ending a session. Used by the logout button and
 // triggered automatically when a token is missing/expired/rejected. Clears the
-// stored token and any rendered profile data so nothing protected lingers.
+// stored token and resets rendered values so no protected data lingers — but
+// keeps the card structure intact so a later re-login can repopulate it.
 function logout() {
   localStorage.removeItem("token");
-  const profile = document.getElementById("profile");
-  if (profile) profile.innerHTML = "";
+  resetProfile();
   showLogin();
+}
+
+// Reset every rendered profile value back to its placeholder without destroying
+// the DOM structure (so loadProfile() can refill it on the next login).
+function resetProfile() {
+  const profile = document.getElementById("profile");
+  if (!profile) return;
+  for (const dd of profile.querySelectorAll(".info dd")) {
+    dd.textContent = "—";
+  }
+  const recent = document.getElementById("recent-list");
+  if (recent) recent.innerHTML = "<li>—</li>";
+  for (const box of profile.querySelectorAll(".graph-box")) {
+    box.innerHTML = '<p class="graph-placeholder">—</p>';
+  }
 }
 
 /* ---------------- JWT HELPERS ---------------- */
@@ -598,3 +608,8 @@ async function graphqlRequest(query, variables = {}) {
 
   return result.data;
 }
+
+/* ---------------- INIT ---------------- */
+
+// Wire up the graph zoom modal once (adds document-level listeners).
+setupGraphModal();

@@ -21,6 +21,61 @@ input {
 button {
   padding: 10px 15px;
   cursor: pointer;
+  background: #38bdf8;
+  color: #0f172a;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #0ea5e9;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- Login view: centred card ---- */
+#login-view {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-card h1 {
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.login-card label {
+  display: block;
+  margin-top: 12px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.login-card #login-btn {
+  width: 100%;
+  margin-top: 18px;
+}
+
+/* Error message (login + section errors) */
+.error {
+  color: #f87171;
+  margin: 12px 0 0;
+  min-height: 1.2em;
+  text-align: center;
 }
 
 /* ---- Dashboard header: title centred, logout top-right ---- */
@@ -37,10 +92,17 @@ button {
   text-align: center;
 }
 
-/* Logout sits in the right column, pushed to the far right. */
+/* Logout sits in the right column, pushed to the far right. Muted style so it
+   doesn't compete with primary actions. */
 .dashboard-header #logout-btn {
   grid-column: 3;
   justify-self: end;
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.dashboard-header #logout-btn:hover {
+  background: #475569;
 }
 
 /* ---- Profile cards ---- */
