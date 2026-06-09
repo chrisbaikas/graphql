@@ -194,11 +194,114 @@ function createSvg(width, height) {
   });
 }
 
-// Ticket 9 — Section 4: statistics container. The actual graphs are drawn by
-// Ticket 10 (XP over time) and Ticket 11 (audit ratio); this loader is the one
-// entry point that will populate both #graph-xp and #graph-audit.
+// Ticket 9 — Section 4: statistics container. Draws the SVG graphs:
+// Ticket 10 (XP over time) into #graph-xp, Ticket 11 (audit ratio) into
+// #graph-audit. Each graph handles its own errors independently.
 async function loadStatsSection() {
-  // T10/T11 will fill these in. Until then the placeholders remain.
+  await drawXpGraph();
+}
+
+// Ticket 10 — SVG Graph #1: cumulative XP over time (line chart).
+async function drawXpGraph() {
+  const box = document.getElementById("graph-xp");
+  if (!box) return;
+
+  try {
+    const data = await graphqlRequest(`{
+      transaction(
+        where: { type: { _eq: "xp" } }
+        order_by: { createdAt: asc }
+      ) {
+        amount
+        createdAt
+      }
+    }`);
+    const transactions = data.transaction || [];
+
+    if (transactions.length < 2) {
+      box.innerHTML = '<p class="graph-placeholder">Not enough XP data yet.</p>';
+      return;
+    }
+
+    // Build cumulative-XP points: x = time (ms), y = running total.
+    let running = 0;
+    const points = transactions.map((t) => {
+      running += t.amount || 0;
+      return { x: new Date(t.createdAt).getTime(), y: running };
+    });
+
+    // ---- coordinate space ----
+    const W = 480;
+    const H = 260;
+    const pad = { top: 16, right: 16, bottom: 28, left: 52 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    const xMin = points[0].x;
+    const xMax = points[points.length - 1].x;
+    const yMax = points[points.length - 1].y; // cumulative, so last is largest
+    const xSpan = xMax - xMin || 1;
+    const ySpan = yMax || 1;
+
+    const sx = (x) => pad.left + ((x - xMin) / xSpan) * plotW;
+    const sy = (y) => pad.top + plotH - (y / ySpan) * plotH;
+
+    const svg = createSvg(W, H);
+    svg.setAttribute("aria-label", "Cumulative XP over time");
+
+    // ---- axes ----
+    svg.appendChild(svgEl("line", {
+      x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
+      stroke: "#475569", "stroke-width": 1
+    }));
+    svg.appendChild(svgEl("line", {
+      x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
+      stroke: "#475569", "stroke-width": 1
+    }));
+
+    // ---- Y axis labels (0 and max) ----
+    const yLabel0 = svgEl("text", {
+      x: pad.left - 6, y: pad.top + plotH, "text-anchor": "end",
+      "dominant-baseline": "middle", fill: "#94a3b8", "font-size": 11
+    });
+    yLabel0.textContent = "0";
+    svg.appendChild(yLabel0);
+
+    const yLabelMax = svgEl("text", {
+      x: pad.left - 6, y: pad.top, "text-anchor": "end",
+      "dominant-baseline": "middle", fill: "#94a3b8", "font-size": 11
+    });
+    yLabelMax.textContent = formatXp(yMax);
+    svg.appendChild(yLabelMax);
+
+    // ---- X axis labels (first and last date) ----
+    const fmtDate = (ms) => new Date(ms).toLocaleDateString();
+    const xLabelStart = svgEl("text", {
+      x: pad.left, y: pad.top + plotH + 16, "text-anchor": "start",
+      fill: "#94a3b8", "font-size": 11
+    });
+    xLabelStart.textContent = fmtDate(xMin);
+    svg.appendChild(xLabelStart);
+
+    const xLabelEnd = svgEl("text", {
+      x: pad.left + plotW, y: pad.top + plotH + 16, "text-anchor": "end",
+      fill: "#94a3b8", "font-size": 11
+    });
+    xLabelEnd.textContent = fmtDate(xMax);
+    svg.appendChild(xLabelEnd);
+
+    // ---- the cumulative line ----
+    const polyPoints = points.map((p) => `${sx(p.x)},${sy(p.y)}`).join(" ");
+    svg.appendChild(svgEl("polyline", {
+      points: polyPoints, fill: "none", stroke: "#38bdf8", "stroke-width": 2
+    }));
+
+    box.innerHTML = "";
+    box.appendChild(svg);
+  } catch (err) {
+    box.innerHTML = '<p class="graph-placeholder">Could not load XP graph.</p>';
+    showError(`Could not load XP graph: ${err.message}`);
+  }
 }
 
 /* ---------------- LOGIN ---------------- */
