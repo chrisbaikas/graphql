@@ -35,28 +35,28 @@
 
     <div id="profile">
       <!-- Section 1: User identification -->
-      <section id="user-section" class="card">
-        <h2>User</h2>
+      <details id="user-section" class="card" open>
+        <summary><h2>User</h2></summary>
         <dl class="info">
           <dt>Login</dt>
           <dd id="user-login">—</dd>
           <dt>User ID</dt>
           <dd id="user-id">—</dd>
         </dl>
-      </section>
+      </details>
 
       <!-- Section 2: XP -->
-      <section id="xp-section" class="card">
-        <h2>XP</h2>
+      <details id="xp-section" class="card" open>
+        <summary><h2>XP</h2></summary>
         <dl class="info">
           <dt>Total XP</dt>
           <dd id="xp-total">—</dd>
         </dl>
-      </section>
+      </details>
 
       <!-- Section 3: Audits -->
-      <section id="grades-section" class="card">
-        <h2>Audit ratio</h2>
+      <details id="grades-section" class="card" open>
+        <summary><h2>Audit ratio</h2></summary>
         <dl class="info">
           <dt>Done</dt>
           <dd id="audit-done">—</dd>
@@ -65,15 +65,34 @@
           <dt>Ratio</dt>
           <dd id="audit-ratio">—</dd>
         </dl>
-      </section>
+      </details>
 
       <!-- Recent projects (uses a nested GraphQL query — Ticket 8) -->
-      <section id="recent-section" class="card">
-        <h2>Recent projects</h2>
+      <details id="recent-section" class="card" open>
+        <summary><h2>Recent projects</h2></summary>
         <ul id="recent-list" class="recent">
           <li>—</li>
         </ul>
-      </section>
+      </details>
+
+      <!-- Section 4: Statistics — SVG graphs (Tickets 9/10/11) -->
+      <details id="stats-section" class="card" open>
+        <summary><h2>Statistics</h2></summary>
+        <div class="graphs">
+          <figure class="graph">
+            <figcaption>XP over time</figcaption>
+            <div id="graph-xp" class="graph-box">
+              <p class="graph-placeholder">—</p>
+            </div>
+          </figure>
+          <figure class="graph">
+            <figcaption>Audit ratio</figcaption>
+            <div id="graph-audit" class="graph-box">
+              <p class="graph-placeholder">—</p>
+            </div>
+          </figure>
+        </div>
+      </details>
     </div>
   </section>
 
