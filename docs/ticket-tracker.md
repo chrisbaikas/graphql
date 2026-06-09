@@ -417,33 +417,44 @@ A line/area chart of cumulative XP over time.
 
 ---
 
-## Ticket 11 — SVG Graph #2: Pass / Fail (or Audit) Ratio
+## Ticket 11 — SVG Graph #2: Audit Ratio (bar chart)
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:**
   *"At least two different graphs created using SVG"* (graph 2/2);
   data accuracy.
 
 ### Goal
-A second, **different** graph type visualising pass/fail or the audit ratio.
+A second, **different** graph type (bar chart) visualising the audit ratio —
+XP given (Done) vs received (Received), consistent with the T7 section.
 
 ### Data source
 ```graphql
 {
-  result {
-    grade
+  transaction(where: { type: { _in: ["up", "down"] } }) {
+    type
+    amount
   }
 }
 ```
 
 ### SVG features
-- [ ] Pie **or** bar chart (must be a different chart type than T10)
-- [ ] Legend / labels with counts or percentages
+- [x] Bar chart — a different chart type than T10's line chart
+- [x] Per-bar value labels (`formatXp`) + category labels (Done / Received)
 
 ### Acceptance criteria
-- [ ] The two slices/bars sum to the total number of results
-- [ ] Counts match the pass/fail figures in T7
+- [x] Two bars: Done = sum(up), Received = sum(down)
+- [ ] Values match the Done/Received figures in T7 (manual — see T13)
+
+### Implementation notes
+- `drawAuditGraph()` (called by `loadStatsSection()`) renders into `#graph-audit`.
+- Reuses the T7 up/down query; bars scaled to the larger of the two values.
+- Switched from the tracker's original pass/fail idea to Done/Received to match
+  what the platform actually shows (see T7 rationale).
+- **Graph zoom:** clicking any `.graph-box` opens an enlarged clone of its SVG
+  in a modal/lightbox (`#graph-modal`); closes via X, backdrop, or Escape.
+  `setupGraphModal()` wires this once on load (counts toward T17 UI polish).
 
 ---
 

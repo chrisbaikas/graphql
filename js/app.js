@@ -93,6 +93,15 @@ function formatXp(bytes) {
   return `${bytes} B`;
 }
 
+// Format a timestamp (ms) as DD/MM/YYYY — fixed order, not locale-dependent
+// (toLocaleDateString would show MM/DD/YYYY in a US-locale browser).
+function formatDate(ms) {
+  const d = new Date(ms);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
 // Ticket 7 — Section 3: audit ratio (XP given vs received), matching the
 // platform profile's "Done" (up) / "Received" (down) figures.
 async function loadGradesSection() {
@@ -199,7 +208,47 @@ function createSvg(width, height) {
 // #graph-audit. Each graph handles its own errors independently.
 async function loadStatsSection() {
   await drawXpGraph();
+  await drawAuditGraph();
 }
+
+/* ---------------- GRAPH ZOOM (modal) ---------------- */
+
+// Click any graph box to open an enlarged copy in a modal; close with the X,
+// a backdrop click, or Escape. The SVG is cloned (not moved) so the dashboard
+// graph stays in place.
+function setupGraphModal() {
+  const modal = document.getElementById("graph-modal");
+  const body = document.getElementById("modal-body");
+  const closeBtn = document.getElementById("modal-close");
+  if (!modal || !body || !closeBtn) return;
+
+  function openModal(svg) {
+    body.innerHTML = "";
+    body.appendChild(svg.cloneNode(true));
+    modal.hidden = false;
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    body.innerHTML = "";
+  }
+
+  // Event-delegate: any click inside a .graph-box that contains an <svg> opens it.
+  document.addEventListener("click", (e) => {
+    const box = e.target.closest(".graph-box");
+    if (!box) return;
+    const svg = box.querySelector("svg");
+    if (svg) openModal(svg);
+  });
+
+  closeBtn.addEventListener("click", closeModal);
+  modal.querySelector(".modal-backdrop").addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.hidden) closeModal();
+  });
+}
+
+setupGraphModal();
 
 // Ticket 10 — SVG Graph #1: cumulative XP over time (line chart).
 async function drawXpGraph() {
@@ -275,19 +324,18 @@ async function drawXpGraph() {
     svg.appendChild(yLabelMax);
 
     // ---- X axis labels (first and last date) ----
-    const fmtDate = (ms) => new Date(ms).toLocaleDateString();
     const xLabelStart = svgEl("text", {
       x: pad.left, y: pad.top + plotH + 16, "text-anchor": "start",
       fill: "#94a3b8", "font-size": 11
     });
-    xLabelStart.textContent = fmtDate(xMin);
+    xLabelStart.textContent = formatDate(xMin);
     svg.appendChild(xLabelStart);
 
     const xLabelEnd = svgEl("text", {
       x: pad.left + plotW, y: pad.top + plotH + 16, "text-anchor": "end",
       fill: "#94a3b8", "font-size": 11
     });
-    xLabelEnd.textContent = fmtDate(xMax);
+    xLabelEnd.textContent = formatDate(xMax);
     svg.appendChild(xLabelEnd);
 
     // ---- the cumulative line ----
@@ -301,6 +349,92 @@ async function drawXpGraph() {
   } catch (err) {
     box.innerHTML = '<p class="graph-placeholder">Could not load XP graph.</p>';
     showError(`Could not load XP graph: ${err.message}`);
+  }
+}
+
+// Ticket 11 — SVG Graph #2: audit XP given (Done) vs received (Received) as a
+// bar chart — a deliberately different chart type from T10's line chart.
+async function drawAuditGraph() {
+  const box = document.getElementById("graph-audit");
+  if (!box) return;
+
+  try {
+    const data = await graphqlRequest(
+      `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
+    );
+    const transactions = data.transaction || [];
+    let done = 0;
+    let received = 0;
+    for (const t of transactions) {
+      if (t.type === "up") done += t.amount || 0;
+      else if (t.type === "down") received += t.amount || 0;
+    }
+
+    if (done === 0 && received === 0) {
+      box.innerHTML = '<p class="graph-placeholder">No audit data yet.</p>';
+      return;
+    }
+
+    const bars = [
+      { label: "Done", value: done, color: "#22c55e" },
+      { label: "Received", value: received, color: "#f97316" }
+    ];
+
+    // ---- coordinate space ----
+    const W = 480;
+    const H = 260;
+    const pad = { top: 16, right: 16, bottom: 28, left: 52 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+    const max = Math.max(done, received) || 1;
+
+    const svg = createSvg(W, H);
+    svg.setAttribute("aria-label", "Audit XP done vs received");
+
+    // ---- axes ----
+    svg.appendChild(svgEl("line", {
+      x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
+      stroke: "#475569", "stroke-width": 1
+    }));
+    svg.appendChild(svgEl("line", {
+      x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
+      stroke: "#475569", "stroke-width": 1
+    }));
+
+    // ---- bars ----
+    const slot = plotW / bars.length;
+    const barW = slot * 0.5;
+    bars.forEach((bar, i) => {
+      const h = (bar.value / max) * plotH;
+      const x = pad.left + i * slot + (slot - barW) / 2;
+      const y = pad.top + plotH - h;
+
+      svg.appendChild(svgEl("rect", {
+        x, y, width: barW, height: h, fill: bar.color, rx: 3
+      }));
+
+      // value label above each bar
+      const valEl = svgEl("text", {
+        x: x + barW / 2, y: y - 5, "text-anchor": "middle",
+        fill: "#e2e8f0", "font-size": 11
+      });
+      valEl.textContent = formatXp(bar.value);
+      svg.appendChild(valEl);
+
+      // category label under the axis
+      const catEl = svgEl("text", {
+        x: x + barW / 2, y: pad.top + plotH + 16, "text-anchor": "middle",
+        fill: "#94a3b8", "font-size": 11
+      });
+      catEl.textContent = bar.label;
+      svg.appendChild(catEl);
+    });
+
+    box.innerHTML = "";
+    box.appendChild(svg);
+  } catch (err) {
+    box.innerHTML = '<p class="graph-placeholder">Could not load audit graph.</p>';
+    showError(`Could not load audit graph: ${err.message}`);
   }
 }
 
