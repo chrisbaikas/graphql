@@ -90,44 +90,35 @@ function formatXp(bytes) {
   return `${bytes} B`;
 }
 
-// Ticket 7 — Section 3: grades (pass/fail) and audit ratio.
+// Ticket 7 — Section 3: audit ratio (XP given vs received), matching the
+// platform profile's "Done" (up) / "Received" (down) figures.
 async function loadGradesSection() {
-  const passedEl = document.getElementById("projects-passed");
-  const failedEl = document.getElementById("projects-failed");
+  const doneEl = document.getElementById("audit-done");
+  const receivedEl = document.getElementById("audit-received");
   const ratioEl = document.getElementById("audit-ratio");
 
   try {
-    // Pass/fail results — a "normal" query. grade >= 1 counts as a pass.
-    const resultData = await graphqlRequest(`{ result { grade } }`);
-    const results = resultData.result || [];
-    let passed = 0;
-    let failed = 0;
-    for (const r of results) {
-      if (r.grade >= 1) passed++;
-      else failed++;
-    }
-
-    // Audit ratio — XP given (up) vs received (down). "With arguments" query.
+    // "With arguments" query: only up/down transactions are audit XP.
     const auditData = await graphqlRequest(
       `{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }`
     );
     const transactions = auditData.transaction || [];
-    let up = 0;
-    let down = 0;
+    let done = 0; // XP given to others (audits done)
+    let received = 0; // XP received from others (audits on you)
     for (const t of transactions) {
-      if (t.type === "up") up += t.amount || 0;
-      else if (t.type === "down") down += t.amount || 0;
+      if (t.type === "up") done += t.amount || 0;
+      else if (t.type === "down") received += t.amount || 0;
     }
-    const ratio = down > 0 ? (up / down).toFixed(1) : "—";
+    const ratio = received > 0 ? (done / received).toFixed(1) : "—";
 
-    if (passedEl) passedEl.textContent = passed;
-    if (failedEl) failedEl.textContent = failed;
+    if (doneEl) doneEl.textContent = formatXp(done);
+    if (receivedEl) receivedEl.textContent = formatXp(received);
     if (ratioEl) ratioEl.textContent = ratio;
   } catch (err) {
-    if (passedEl) passedEl.textContent = "—";
-    if (failedEl) failedEl.textContent = "—";
+    if (doneEl) doneEl.textContent = "—";
+    if (receivedEl) receivedEl.textContent = "—";
     if (ratioEl) ratioEl.textContent = "—";
-    showError(`Could not load grades/audits: ${err.message}`);
+    showError(`Could not load audit ratio: ${err.message}`);
   }
 }
 
