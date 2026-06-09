@@ -42,6 +42,7 @@ function loadProfile() {
   loadXpSection();
   loadGradesSection();
   loadRecentSection();
+  loadStatsSection();
 }
 
 // Ticket 5 — Section 1: basic user identification.
@@ -165,6 +166,39 @@ async function loadRecentSection() {
     if (listEl) listEl.innerHTML = "<li>—</li>";
     showError(`Could not load recent projects: ${err.message}`);
   }
+}
+
+/* ---------------- STATISTICS (SVG) ---------------- */
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Create an SVG element in the correct namespace and apply attributes.
+// `attrs` keys map straight to SVG attribute names (e.g. { x1: 0, stroke: "#fff" }).
+function svgEl(name, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, name);
+  for (const [key, value] of Object.entries(attrs)) {
+    el.setAttribute(key, value);
+  }
+  return el;
+}
+
+// Build a fresh, responsive <svg> root sized by a viewBox. CSS scales it to the
+// container width (see .graph-box svg). Width/height define the coordinate
+// space that T10/T11 draw into.
+function createSvg(width, height) {
+  return svgEl("svg", {
+    viewBox: `0 0 ${width} ${height}`,
+    width,
+    height,
+    role: "img"
+  });
+}
+
+// Ticket 9 — Section 4: statistics container. The actual graphs are drawn by
+// Ticket 10 (XP over time) and Ticket 11 (audit ratio); this loader is the one
+// entry point that will populate both #graph-xp and #graph-audit.
+async function loadStatsSection() {
+  // T10/T11 will fill these in. Until then the placeholders remain.
 }
 
 /* ---------------- LOGIN ---------------- */

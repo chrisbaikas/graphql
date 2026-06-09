@@ -36,6 +36,41 @@ button {
   font-size: 1.1rem;
 }
 
+/* ---- Collapsible cards (<details>/<summary>) ---- */
+.card > summary {
+  cursor: pointer;
+  list-style: none; /* hide default marker; we draw our own caret below */
+  user-select: none;
+}
+
+.card > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Keep the <h2> inline so the caret sits next to the title. */
+.card > summary h2 {
+  display: inline;
+  margin: 0;
+}
+
+/* Caret that rotates when the card is open. */
+.card > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 8px;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
+}
+
+.card[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+/* Restore spacing under the summary when the card is open. */
+.card[open] > summary {
+  margin-bottom: 12px;
+}
+
 .info {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -60,4 +95,45 @@ button {
 
 .recent li {
   margin: 4px 0;
+}
+
+/* ---- Statistics / SVG graphs ---- */
+.graphs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 560px) {
+  .graphs {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.graph {
+  margin: 0;
+}
+
+.graph figcaption {
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.graph-box {
+  background: #0f172a;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+/* Make SVGs scale to their container while keeping aspect ratio. */
+.graph-box svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.graph-placeholder {
+  color: #64748b;
+  text-align: center;
+  margin: 24px 0;
 }

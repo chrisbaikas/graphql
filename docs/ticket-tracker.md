@@ -345,7 +345,7 @@ three forms fire on dashboard load via `loadProfile()`.
 
 ## Ticket 9 — Section 4: Statistics (SVG container)
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:**
   *"Does the profile include a fourth section dedicated to graphical
@@ -355,13 +355,22 @@ three forms fire on dashboard load via `loadProfile()`.
 Create the dedicated statistics section that hosts the SVG graphs.
 
 ### Tasks
-- [ ] Add a clearly-labelled "Statistics" section to the dashboard
-- [ ] Provide responsive SVG containers for at least two graphs
-- [ ] Build a tiny SVG helper (scaling, axes, labels) reused by T10/T11
+- [x] Add a clearly-labelled "Statistics" section to the dashboard
+- [x] Provide responsive SVG containers for at least two graphs
+- [x] Build a tiny SVG helper (scaling, axes, labels) reused by T10/T11
 
 ### Acceptance criteria
-- [ ] A distinct fourth section exists, separate from the three info sections
-- [ ] Graphs are drawn with **SVG** (not canvas, not an image, not a chart lib)
+- [x] A distinct fourth section exists, separate from the three info sections
+- [x] Graphs are drawn with **SVG** (not canvas, not an image, not a chart lib)
+
+### Implementation notes
+- Markup: `#stats-section` with two `<figure>` graph boxes (`#graph-xp`,
+  `#graph-audit`), each showing a placeholder until T10/T11 draw into it.
+- CSS `.graphs` is a 1-col grid that becomes 2-col ≥560px; `.graph-box svg`
+  scales to container width via `viewBox` + `width:100%`.
+- JS helpers `svgEl(name, attrs)` and `createSvg(w, h)` create namespaced SVG
+  nodes — reused by T10/T11. `loadStatsSection()` is the single entry point
+  that T10/T11 will fill in.
 
 ---
 
