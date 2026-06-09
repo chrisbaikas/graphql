@@ -39,6 +39,7 @@ function showDashboard() {
 // one failing query doesn't blank the whole profile.
 function loadProfile() {
   loadUserSection();
+  loadXpSection();
 }
 
 // Ticket 5 — Section 1: basic user identification.
@@ -58,6 +59,34 @@ async function loadUserSection() {
     if (idEl) idEl.textContent = "—";
     showError(`Could not load user info: ${err.message}`);
   }
+}
+
+// Ticket 6 — Section 2: total XP.
+// Uses a "with arguments" query (where: type _eq "xp") so only xp-type
+// transactions are summed — no level/up/down noise.
+async function loadXpSection() {
+  const totalEl = document.getElementById("xp-total");
+
+  try {
+    const data = await graphqlRequest(
+      `{ transaction(where: { type: { _eq: "xp" } }) { amount } }`
+    );
+    const transactions = data.transaction || [];
+    const totalXp = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    if (totalEl) totalEl.textContent = formatXp(totalXp);
+  } catch (err) {
+    if (totalEl) totalEl.textContent = "—";
+    showError(`Could not load XP: ${err.message}`);
+  }
+}
+
+// The platform reports XP in bytes. Render it human-readably (kB / MB) so the
+// number matches how the platform profile presents it.
+function formatXp(bytes) {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(2)} MB`;
+  if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(2)} kB`;
+  return `${bytes} B`;
 }
 
 /* ---------------- LOGIN ---------------- */

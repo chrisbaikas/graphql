@@ -235,7 +235,7 @@ Display basic user identification — the first of the three required sections.
 
 ## Ticket 6 — Section 2: XP
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:** Three required sections (section 2/3); data accuracy.
 
@@ -247,19 +247,29 @@ Display the user's total XP — the second required section.
 {
   transaction(where: { type: { _eq: "xp" } }) {
     amount
-    path
-    createdAt
   }
 }
 ```
 
 ### UI
-- [ ] Total XP (sum of `amount` where `type = "xp"`)
-- [ ] Human-readable formatting (e.g. kB / MB if the platform uses byte-XP)
+- [x] Total XP (sum of `amount` where `type = "xp"`)
+- [x] Human-readable formatting (e.g. kB / MB if the platform uses byte-XP)
 
 ### Acceptance criteria
-- [ ] Total XP matches the sum computed from GraphiQL for the same query
-- [ ] Only `xp`-type transactions are counted (no `level`/`up`/`down` noise)
+- [ ] Total XP matches the sum computed from GraphiQL for the same query (manual — see T13)
+- [x] Only `xp`-type transactions are counted (no `level`/`up`/`down` noise)
+
+### Implementation notes
+- Markup: `#xp-section` card in `index.html` with `#xp-total`.
+- `loadXpSection()` runs via `loadProfile()` → `showDashboard()`, so XP loads on
+  login AND on refresh. Per-section try/catch like T5.
+- Query uses `where: { type: { _eq: "xp" } }` — this is a **"with arguments"**
+  query, contributing to the Ticket 8 checklist.
+- Sum done client-side via `reduce`; `formatXp()` renders bytes as B / kB / MB.
+
+### Manual verification (needs live session)
+- [ ] Dashboard shows the correct total XP
+- [ ] Value matches the sum of `amount` for the same query in GraphiQL
 
 ---
 
