@@ -314,7 +314,7 @@ Audit ratio (XP given vs received):
 
 ## Ticket 8 — Required GraphQL Query Types
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:**
   *"Does the project have at least the mandatory queries
@@ -325,23 +325,21 @@ Guarantee all three mandatory query forms are actually used in the app. This is
 a cross-cutting checklist over T5–T11, not a separate feature.
 
 ### Tasks — confirm each form is used somewhere in the codebase
-- [ ] **Normal** query — e.g. `{ user { id login } }` (T5)
-- [ ] **Query with arguments** — e.g.
-  ```graphql
-  { object(where: { id: { _eq: 3323 } }) { name type } }
-  ```
-- [ ] **Nested** query — e.g.
-  ```graphql
-  { result { grade user { id login } } }
-  ```
+- [x] **Normal** query — `{ user { id login } }` in `loadUserSection()` (T5)
+- [x] **Query with arguments** —
+  `transaction(where: { type: { _eq: "xp" } })` in `loadXpSection()` (T6);
+  also the audit `_in: ["up","down"]` query in `loadGradesSection()` (T7)
+- [x] **Nested** query — `result { grade object { name type } }` in
+  `loadRecentSection()` (also powers the "Recent projects" card)
 
 ### Acceptance criteria
-- [ ] All three query types are present and executed in the running app
-- [ ] Each is demonstrable to the auditor (e.g. visible in DevTools network tab)
+- [x] All three query types are present and executed in the running app
+- [ ] Each is demonstrable to the auditor in DevTools network tab (manual)
 
 ### Notes
-The argument-style query in instructions.md *requires* arguments to return a
-single object — a good candidate to satisfy the "with arguments" requirement.
+The nested query was added as a real feature (Recent projects) rather than a
+throwaway, so the nesting is visible in the UI as well as the network tab. All
+three forms fire on dashboard load via `loadProfile()`.
 
 ---
 
