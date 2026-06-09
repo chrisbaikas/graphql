@@ -41,9 +41,11 @@ function loadProfile() {
   loadUserSection();
   loadXpSection();
   loadGradesSection();
+  loadRecentSection();
 }
 
 // Ticket 5 — Section 1: basic user identification.
+// Ticket 8 — this is the app's NORMAL query: `{ user { id login } }`.
 async function loadUserSection() {
   const loginEl = document.getElementById("user-login");
   const idEl = document.getElementById("user-id");
@@ -119,6 +121,49 @@ async function loadGradesSection() {
     if (receivedEl) receivedEl.textContent = "—";
     if (ratioEl) ratioEl.textContent = "—";
     showError(`Could not load audit ratio: ${err.message}`);
+  }
+}
+
+// Ticket 8 — the app's NESTED query. Fetches the latest project results and,
+// nested inside each, the related `object` (its name and type). Also doubles as
+// a small "recent projects" list, so the nesting earns its place in the UI.
+async function loadRecentSection() {
+  const listEl = document.getElementById("recent-list");
+
+  try {
+    const data = await graphqlRequest(`{
+      result(
+        where: { object: { type: { _eq: "project" } } }
+        order_by: { createdAt: desc }
+        limit: 5
+      ) {
+        grade
+        object {
+          name
+          type
+        }
+      }
+    }`);
+    const results = data.result || [];
+
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    if (!results.length) {
+      listEl.innerHTML = "<li>No projects yet.</li>";
+      return;
+    }
+
+    for (const r of results) {
+      const name = (r.object && r.object.name) || "Unknown";
+      const status = r.grade >= 1 ? "pass" : "fail";
+      const li = document.createElement("li");
+      li.textContent = `${name} — ${status}`;
+      listEl.appendChild(li);
+    }
+  } catch (err) {
+    if (listEl) listEl.innerHTML = "<li>—</li>";
+    showError(`Could not load recent projects: ${err.message}`);
   }
 }
 

@@ -52,3 +52,12 @@ button {
   font-weight: bold;
   word-break: break-all;
 }
+
+.recent {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.recent li {
+  margin: 4px 0;
+}
