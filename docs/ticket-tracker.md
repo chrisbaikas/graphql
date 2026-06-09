@@ -376,7 +376,7 @@ Create the dedicated statistics section that hosts the SVG graphs.
 
 ## Ticket 10 — SVG Graph #1: XP Progress Over Time
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:**
   *"At least two different graphs created using SVG"* (graph 1/2);
@@ -399,13 +399,21 @@ A line/area chart of cumulative XP over time.
 ```
 
 ### SVG features
-- [ ] X axis (time) and Y axis (cumulative XP) with labels
-- [ ] Polyline / path of the cumulative total
-- [ ] Bonus: hover tooltip with the value at a point
+- [x] X axis (time) and Y axis (cumulative XP) with labels
+- [x] Polyline / path of the cumulative total
+- [ ] Bonus: hover tooltip with the value at a point (not done)
 
 ### Acceptance criteria
-- [ ] The final cumulative value equals the total XP shown in T6
-- [ ] The trend visibly tracks the chronological transactions
+- [ ] The final cumulative value equals the total XP shown in T6 (manual — see T13)
+- [x] The trend visibly tracks the chronological transactions
+
+### Implementation notes
+- `drawXpGraph()` (called by `loadStatsSection()`) renders into `#graph-xp`.
+- Cumulative running total over time; `polyline` for the line, `line`+`text`
+  for axes and 0/max + first/last-date labels. Y-max label uses `formatXp()`.
+- Coordinate scaling via `sx()`/`sy()` into a 480×260 viewBox; CSS scales it to
+  the container. Uses the `svgEl()`/`createSvg()` helpers from T9.
+- Guards: <2 points shows a "not enough data" placeholder.
 
 ---
 
