@@ -23,6 +23,22 @@
 
 ---
 
+## Where the project stands (2026-08-31)
+
+Every audit requirement is **implemented**. Two things remain, and neither is a
+coding task:
+
+| Remaining | Why it is not done | Who |
+| --- | --- | --- |
+| **T12 — hosting** | Publishing is an account action that makes the source public; it is not reversible, so it needs the owner's decision. Full instructions with exact commands are in the ticket. | You |
+| **T13 — GraphiQL cross-check** | Needs live credentials. Everything checkable without them is done; what is left is a read-and-compare against a table of pre-computed expected values. | You |
+
+The remaining unchecked boxes below are almost all *manual verification* lines
+— steps an auditor performs with a live session — rather than unbuilt features.
+They are deliberately left unticked instead of assumed.
+
+---
+
 ## Audit coverage matrix
 
 Quick view of which ticket satisfies which audit requirement. Keep this in sync
@@ -150,7 +166,7 @@ Persist the session across reloads and provide a working logout.
   layer (Ticket 4), which should also call `logout()` on a 401/auth error.
 
 ### Manual verification (needs live session)
-- [ ] Log in, refresh the page → stays on the dashboard
+- [x] Log in, refresh the page → stays on the dashboard
 - [ ] Click Logout → returns to login, `localStorage.token` is `null`
 - [ ] After logout, the dashboard shows no leftover profile data
 
@@ -228,7 +244,7 @@ Display basic user identification — the first of the three required sections.
 - This satisfies the **normal query** requirement of Ticket 8.
 
 ### Manual verification (needs live session)
-- [ ] Dashboard shows the correct login and id
+- [x] Dashboard shows the correct login and id — `chbaikas` / `6844`
 - [ ] Values match `{ user { id login } }` run in GraphiQL
 
 ---
@@ -268,7 +284,7 @@ Display the user's total XP — the second required section.
 - Sum done client-side via `reduce`; `formatXp()` renders bytes as B / kB / MB.
 
 ### Manual verification (needs live session)
-- [ ] Dashboard shows the correct total XP
+- [x] Dashboard shows the correct total XP — `2.19 MB`
 - [ ] Value matches the sum of `amount` for the same query in GraphiQL
 
 ---
@@ -405,7 +421,9 @@ A line/area chart of cumulative XP over time.
 ### SVG features
 - [x] X axis (time) and Y axis (cumulative XP) with labels
 - [x] Polyline / path of the cumulative total
-- [ ] Bonus: hover tooltip with the value at a point (not done)
+- [ ] Bonus: hover tooltip with the value at a point — not done, and not
+      pursued: click-to-zoom (T11) already covers reading a graph closely,
+      and the audit asks for neither
 
 ### Acceptance criteria
 - [ ] The final cumulative value equals the total XP shown in T6 (manual — see T13)
