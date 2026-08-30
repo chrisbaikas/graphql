@@ -128,10 +128,12 @@ Expected: for each distinct `type`, its **highest** `amount` (a skill is
 re-recorded as it improves, so the max is the current level — not the sum). The
 card shows the top 6 by that value.
 
-- [ ] The listed skills are the 6 highest-scoring `skill_*` types
+- [ ] The listed skills are the highest-scoring `skill_*` types, descending
 - [ ] Each percentage == the max `amount` for that type
 - [ ] Bar widths look proportional to their percentages
 - [ ] Names render readably (`skill_web-dev` → `Web dev`)
+- [ ] If more than 6 skills exist, "Show N more" reveals exactly the remaining
+      ones and "Show less" collapses them again (no toggle when ≤ 6)
 
 ---
 

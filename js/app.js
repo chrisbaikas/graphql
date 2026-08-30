@@ -57,7 +57,12 @@ function showLoading() {
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>Loading…</li>";
   const skills = document.getElementById("skills-list");
-  if (skills) skills.innerHTML = "<li>Loading…</li>";
+  if (skills) {
+    skills.innerHTML = "<li>Loading…</li>";
+    skills.classList.remove("expanded");
+  }
+  const skillsToggle = document.getElementById("skills-toggle");
+  if (skillsToggle) skillsToggle.hidden = true;
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
   }
@@ -237,22 +242,26 @@ async function loadSkillsSection() {
 
     const skills = [...best.entries()]
       .map(([type, amount]) => ({ name: formatSkillName(type), amount }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 6);
+      .sort((a, b) => b.amount - a.amount);
 
     listEl.innerHTML = "";
+    listEl.classList.remove("expanded");
+    const toggle = document.getElementById("skills-toggle");
+    if (toggle) toggle.hidden = true;
 
     if (!skills.length) {
       listEl.innerHTML = "<li>No skill data available.</li>";
       return;
     }
 
-    // Percentages are capped at 100 for the bar width only — an out-of-range
-    // value would otherwise overflow the card.
-    for (const skill of skills) {
+    // Every skill is rendered; the ones past SKILLS_VISIBLE are marked `extra`
+    // and hidden by CSS until "Show more" reveals them.
+    skills.forEach((skill, i) => {
+      // Percentages are capped at 100 for the bar width only — an out-of-range
+      // value would otherwise overflow the card.
       const pct = Math.max(0, Math.min(100, skill.amount));
       const li = document.createElement("li");
-      li.className = "skill";
+      li.className = i < SKILLS_VISIBLE ? "skill" : "skill extra";
 
       const name = document.createElement("span");
       name.className = "skill-name";
@@ -271,11 +280,48 @@ async function loadSkillsSection() {
 
       li.append(name, bar, value);
       listEl.appendChild(li);
+    });
+
+    // The toggle only earns its place when something is actually hidden.
+    if (toggle && skills.length > SKILLS_VISIBLE) {
+      setSkillsExpanded(false, skills.length - SKILLS_VISIBLE);
+      toggle.hidden = false;
     }
   } catch (err) {
     listEl.innerHTML = "<li>—</li>";
+    const toggle = document.getElementById("skills-toggle");
+    if (toggle) toggle.hidden = true;
     showError(`Could not load skills: ${err.message}`);
   }
+}
+
+// How many skills are shown before "Show more" is offered.
+const SKILLS_VISIBLE = 6;
+
+// Show or hide the overflow skills and relabel the button. `hiddenCount` is
+// passed on the first call so the label can name how many are collapsed.
+function setSkillsExpanded(expanded, hiddenCount) {
+  const listEl = document.getElementById("skills-list");
+  const toggle = document.getElementById("skills-toggle");
+  if (!listEl || !toggle) return;
+
+  listEl.classList.toggle("expanded", expanded);
+  if (typeof hiddenCount === "number") toggle.dataset.hidden = hiddenCount;
+
+  const count = toggle.dataset.hidden || "";
+  toggle.textContent = expanded ? "Show less" : `Show ${count} more`;
+  toggle.setAttribute("aria-expanded", String(expanded));
+}
+
+// Wire the Show more / Show less button once on load.
+function setupSkillsToggle() {
+  const toggle = document.getElementById("skills-toggle");
+  const listEl = document.getElementById("skills-list");
+  if (!toggle || !listEl) return;
+
+  toggle.addEventListener("click", () => {
+    setSkillsExpanded(!listEl.classList.contains("expanded"));
+  });
 }
 
 // "skill_go" -> "Go", "skill_web-dev" -> "Web dev". Turns the raw transaction
@@ -614,7 +660,12 @@ function resetProfile() {
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>—</li>";
   const skills = document.getElementById("skills-list");
-  if (skills) skills.innerHTML = "<li>—</li>";
+  if (skills) {
+    skills.innerHTML = "<li>—</li>";
+    skills.classList.remove("expanded");
+  }
+  const skillsToggle = document.getElementById("skills-toggle");
+  if (skillsToggle) skillsToggle.hidden = true;
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }
@@ -736,3 +787,4 @@ function setupSectionControls() {
 // Wire up the graph zoom modal once (adds document-level listeners).
 setupGraphModal();
 setupSectionControls();
+setupSkillsToggle();

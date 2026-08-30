@@ -238,6 +238,32 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+/* Overflow skills stay in the DOM but hidden until "Show more" is pressed. */
+.skills .extra {
+  display: none;
+}
+
+.skills.expanded .extra {
+  display: grid;
+}
+
+/* Text-style button: it toggles content rather than submitting anything, so it
+   shouldn't compete visually with the real buttons. */
+.link-btn {
+  margin-top: 10px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  color: #38bdf8;
+  font: inherit;
+  cursor: pointer;
+}
+
+.link-btn:hover,
+.link-btn:focus-visible {
+  text-decoration: underline;
+}
+
 /* ---- Statistics / SVG graphs ---- */
 .graphs {
   display: grid;

@@ -540,8 +540,9 @@ This is the step an auditor will literally perform, so do it first ourselves.
 Add genuinely useful extra data beyond the three required sections.
 
 ### Delivered
-- [x] **Skills breakdown** — new `#skills-section` card listing the user's top
-      skills as labelled percentage bars
+- [x] **Skills breakdown** — new `#skills-section` card listing the user's
+      skills as labelled percentage bars, with a Show more / Show less toggle
+      when there are more than 6
 - [x] **Recent projects** — `#recent-section` (already shipped under T8, where
       it served as the nested query; it counts as extra information too)
 
@@ -561,6 +562,10 @@ Add genuinely useful extra data beyond the three required sections.
 - Rendered as CSS bars rather than SVG, deliberately: the SVG graphs belong to
   the Statistics section (T9–T11), and keeping this card visually distinct
   avoids muddying the "fourth section dedicated to graphs" requirement.
+- Shows the top `SKILLS_VISIBLE` (6); any beyond that are rendered but hidden
+  behind a **Show N more / Show less** toggle (`setupSkillsToggle`). The button
+  stays hidden when nothing overflows, and the list re-collapses on reload or
+  logout so it never reopens in a stale expanded state.
 - Bar widths are clamped to 0–100% so an unexpected value can't overflow the
   card; an empty result renders "No skill data available." instead of an error.
 
