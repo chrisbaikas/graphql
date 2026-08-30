@@ -196,13 +196,18 @@ section and the graph, via `fetchAuditTotals()`).
     order_by: { amount: desc }
   ) {
     amount
-    object { name }
+    objectId
+    object { id name }
   }
 }
 ```
 
-Expected: sum `amount` **per `object.name`** (a project can pay out more than
-once), then the top 8 by that total.
+Expected: sum `amount` **per `object.id`** (a project can pay out more than
+once), then the top 8 by that total. Grouping is by ID rather than by name on
+purpose: two distinct projects can carry the same display name, and rows whose
+`object` is null have no name to group on — either case would merge unrelated
+projects into a single bar. `objectId` is the fallback key when the nested
+`object` is missing; the name is used only as the bar's label.
 
 - [ ] The listed projects are the 8 highest XP earners, longest bar first
       ("Show N more" redraws the graph with every project)
@@ -229,7 +234,8 @@ regression check after any change:
 ### Internal review — 2026-08-30
 
 Checked against a logged-in dashboard render (user `chbaikas`, id `6844`) plus a
-read of the query/render code in `js/app.js`. **No discrepancies found.**
+read of the query/render code under `js/` (then a single `js/app.js`,
+since split into ES modules). **No discrepancies found.**
 
 Values seen: Total XP `2.19 MB` · Done `790.35 kB` · Received `968.59 kB` ·
 Ratio `0.8` · XP graph spanning 18/11/2024 → 25/08/2026.

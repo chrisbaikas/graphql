@@ -118,8 +118,14 @@ export function fetchSkills() {
 }
 
 // XP totalled per project as [{ name, amount }, ...], largest first.
-// A project can pay out more than once, so total per name rather than trusting
-// a single row.
+// A project can pay out more than once, so its rows are totalled rather than
+// trusting a single one.
+//
+// Grouping is by the object's ID, never by its name. Two distinct projects can
+// share a display name (the same exercise offered on two paths, say), and rows
+// with no linked object have no name at all — keying on the name would merge
+// unrelated projects into one bar and pile every orphan row into a single
+// "Unknown". The name is carried along purely as the bar's label.
 export function fetchProjectXp() {
   return once("projectXp", async () => {
     const data = await graphqlRequest(QUERIES.PROJECT_XP);
@@ -127,12 +133,18 @@ export function fetchProjectXp() {
 
     const totals = new Map();
     for (const t of transactions) {
-      const name = (t.object && t.object.name) || "Unknown";
-      totals.set(name, (totals.get(name) || 0) + (t.amount || 0));
+      const object = t.object || null;
+      // objectId is the fallback key when the nested object didn't come back;
+      // a row with neither keeps its own identity rather than joining a shared
+      // "Unknown" bucket.
+      const id = (object && object.id) ?? t.objectId ?? `unknown:${totals.size}`;
+      const name = (object && object.name) || "Unknown";
+
+      const entry = totals.get(id);
+      if (entry) entry.amount += t.amount || 0;
+      else totals.set(id, { name, amount: t.amount || 0 });
     }
 
-    return [...totals.entries()]
-      .map(([name, amount]) => ({ name, amount }))
-      .sort((a, b) => b.amount - a.amount);
+    return [...totals.values()].sort((a, b) => b.amount - a.amount);
   });
 }

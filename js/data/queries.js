@@ -67,7 +67,9 @@ export const PROJECT_XP = `{
     order_by: { amount: desc }
   ) {
     amount
+    objectId
     object {
+      id
       name
     }
   }

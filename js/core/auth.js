@@ -9,8 +9,9 @@ export async function login(event) {
 
   // Works for both "username:password" and "email:password" — the platform
   // accepts either identifier in the Basic auth header.
+  const passwordEl = document.getElementById("password");
   const identifier = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
+  const password = passwordEl ? passwordEl.value : "";
 
   const errorText = document.getElementById("error");
   if (errorText) errorText.textContent = "";
@@ -20,11 +21,15 @@ export async function login(event) {
     return;
   }
 
-  const credentials = btoa(`${identifier}:${password}`);
   const submitBtn = document.getElementById("login-btn");
   if (submitBtn) submitBtn.disabled = true;
 
   try {
+    // Inside the try: basicAuth() can throw on an unencodable password, and a
+    // thrown encoding error must reach showError() like any other failure
+    // rather than escaping as an uncaught exception with the button stuck.
+    const credentials = basicAuth(identifier, password);
+
     let response;
     try {
       response = await fetch(SIGNIN_URL, {
@@ -56,6 +61,10 @@ export async function login(event) {
     }
 
     localStorage.setItem(TOKEN_KEY, jwt);
+    // The password must not survive the login. Without this it sits in the
+    // input's value for the whole session and is still there — readable from
+    // the DOM — when logout brings the same form back into view.
+    if (passwordEl) passwordEl.value = "";
     showDashboard();
   } catch (err) {
     showError(err.message);
@@ -70,8 +79,25 @@ export async function login(event) {
 // keeps the card structure intact so a later re-login can repopulate it.
 export function logout() {
   localStorage.removeItem(TOKEN_KEY);
+  // Belt and braces: clear the field on the way out too, so a failed login
+  // attempt's password doesn't linger in the form either. The username is
+  // deliberately left alone — it isn't a secret, and keeping it is a courtesy.
+  const passwordEl = document.getElementById("password");
+  if (passwordEl) passwordEl.value = "";
   resetProfile();
   showLogin();
+}
+
+// Build the Basic auth credential. btoa() only accepts Latin-1, so a password
+// with any character outside that range (an accent, a Greek letter, an emoji)
+// throws an InvalidCharacterError. The bytes are UTF-8 encoded first and then
+// base64'd byte by byte, which is what the endpoint expects for non-ASCII input
+// and is identical to plain btoa() for pure-ASCII credentials.
+export function basicAuth(identifier, password) {
+  const bytes = new TextEncoder().encode(`${identifier}:${password}`);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 // The signin endpoint returns the JWT as a quoted string (e.g. "eyJ...").

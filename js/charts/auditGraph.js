@@ -4,6 +4,7 @@ import { CHART, createSvg, drawAxes, svgEl, svgText } from "./svg.js";
 import { fetchAuditTotals } from "../data/profile.js";
 import { formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
+import { currentSession, isCurrentSession } from "../core/session.js";
 
 // Vertical bar chart — a deliberately different chart type from the line chart,
 // as the audit requires. Shares its totals with the audit card via the cache.
@@ -11,8 +12,11 @@ export async function drawAuditGraph() {
   const box = document.getElementById("graph-audit");
   if (!box) return;
 
+  const session = currentSession();
+
   try {
     const { done, received } = await fetchAuditTotals();
+    if (!isCurrentSession(session)) return;
 
     if (done === 0 && received === 0) {
       box.innerHTML = '<p class="graph-placeholder">No audit data yet.</p>';
@@ -53,6 +57,7 @@ export async function drawAuditGraph() {
     box.innerHTML = "";
     box.appendChild(svg);
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     box.innerHTML = '<p class="graph-placeholder">Could not load audit graph.</p>';
     reportSectionError("Could not load audit graph", err);
   }
