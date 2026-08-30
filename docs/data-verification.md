@@ -102,7 +102,8 @@ Expected values:
 }
 ```
 
-- [ ] The 5 listed names match `object.name`, in the same (newest-first) order
+- [ ] The listed names match `object.name`, in the same (newest-first) order
+      (5 shown; "Show N more" reveals the rest, up to the query's `limit: 30`)
 - [ ] Each item's status matches the rule `grade >= 1 → pass`, otherwise `fail`
 - [ ] Every returned `object.type` is `project`
 
@@ -174,6 +175,36 @@ section and the graph, via `fetchAuditTotals()`).
 - [ ] *Received* bar label == the *Received* value in Check 3
 - [x] Bar heights are proportional: Done/Received ≈ 0.82, matching the rendered
       bar heights
+
+---
+
+## Check 7 — Graph 3: XP by project (T15, bonus)
+
+**UI:** Statistics → "XP by project" (full-width horizontal bars).
+
+```graphql
+{
+  transaction(
+    where: {
+      type: { _eq: "xp" }
+      object: { type: { _eq: "project" } }
+    }
+    order_by: { amount: desc }
+  ) {
+    amount
+    object { name }
+  }
+}
+```
+
+Expected: sum `amount` **per `object.name`** (a project can pay out more than
+once), then the top 8 by that total.
+
+- [ ] The listed projects are the 8 highest XP earners, longest bar first
+      ("Show N more" redraws the graph with every project)
+- [ ] Each value label == that project's summed XP, byte-formatted
+- [ ] Bar lengths are proportional to their values
+- [ ] The listed projects all appear in the platform's own project list
 
 ---
 

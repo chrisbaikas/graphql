@@ -82,6 +82,10 @@
         <ul id="recent-list" class="recent">
           <li>—</li>
         </ul>
+        <button id="recent-toggle" type="button" class="link-btn"
+                aria-controls="recent-list" aria-expanded="false" hidden>
+          Show more
+        </button>
       </details>
 
       <!-- Bonus: Skills breakdown (Ticket 14) — extra info beyond the three
@@ -113,6 +117,17 @@
             <div id="graph-audit" class="graph-box">
               <p class="graph-placeholder">—</p>
             </div>
+          </figure>
+          <!-- Bonus third graph (Ticket 15) -->
+          <figure class="graph graph-wide">
+            <figcaption>XP by project</figcaption>
+            <div id="graph-projects" class="graph-box">
+              <p class="graph-placeholder">—</p>
+            </div>
+            <button id="projects-toggle" type="button" class="link-btn"
+                    aria-controls="graph-projects" aria-expanded="false" hidden>
+              Show more
+            </button>
           </figure>
         </div>
       </details>

@@ -341,6 +341,10 @@ The nested query was added as a real feature (Recent projects) rather than a
 throwaway, so the nesting is visible in the UI as well as the network tab. All
 three forms fire on dashboard load via `loadProfile()`.
 
+The query's `limit` was later raised from 5 to 30 so the card can offer a
+**Show more** toggle over the full history (T15); it still displays
+`RECENT_VISIBLE` (5) until expanded.
+
 ---
 
 ## Ticket 9 — Section 4: Statistics (SVG container)
@@ -563,9 +567,12 @@ Add genuinely useful extra data beyond the three required sections.
   the Statistics section (T9–T11), and keeping this card visually distinct
   avoids muddying the "fourth section dedicated to graphs" requirement.
 - Shows the top `SKILLS_VISIBLE` (6); any beyond that are rendered but hidden
-  behind a **Show N more / Show less** toggle (`setupSkillsToggle`). The button
-  stays hidden when nothing overflows, and the list re-collapses on reload or
-  logout so it never reopens in a stale expanded state.
+  behind a **Show N more / Show less** toggle. The button stays hidden when
+  nothing overflows, and the list re-collapses on reload or logout so it never
+  reopens in a stale expanded state.
+- The toggle machinery is generic (`applyOverflow` / `setExpanded` /
+  `resetOverflow` in the SHOW MORE section), shared with Recent projects and
+  the XP-by-project graph rather than duplicated per section.
 - Bar widths are clamped to 0–100% so an unexpected value can't overflow the
   card; an empty result renders "No skill data available." instead of an error.
 
@@ -580,7 +587,7 @@ Add genuinely useful extra data beyond the three required sections.
 
 ## Ticket 15 — Bonus: Extra Graph(s)
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P2
 - **Audit mapping:**
   *"+Are there additional graphs featured apart from the required two?"*
@@ -588,8 +595,57 @@ Add genuinely useful extra data beyond the three required sections.
 ### Goal
 Add a third SVG graph (e.g. XP by project, piscine attempts per exercise).
 
+### Delivered
+- [x] **XP by project** — horizontal bar chart in `#graph-projects`, showing the
+      top 8 projects by XP earned
+
+### Query
+```graphql
+{
+  transaction(
+    where: {
+      type: { _eq: "xp" }
+      object: { type: { _eq: "project" } }
+    }
+    order_by: { amount: desc }
+  ) {
+    amount
+    object { name }
+  }
+}
+```
+
 ### Acceptance criteria
-- [ ] A third distinct SVG graph is present and accurate
+- [x] A third distinct SVG graph is present
+- [ ] Values are accurate vs GraphiQL (manual — see data-verification.md)
+
+### Implementation notes
+- `drawProjectsGraph()` runs from `loadStatsSection()` alongside T10/T11.
+- **A third chart orientation**, not a third copy of the same idea: the other
+  two run vertically, but project names are long, so bars grow left-to-right
+  with the name in a left gutter and the XP value past the bar's end.
+- Nested query (`transaction → object { name }`) — the project name arrives in
+  the same round trip, reinforcing the T8 nested-query requirement.
+- A project can pay out XP more than once, so amounts are **summed per name**
+  rather than taking a single row.
+- Local geometry instead of the shared `CHART.pad`: the left gutter is widened
+  to 132px for names and the right to 72px so the longest bar's value label
+  ("200.00 kB") still fits inside the viewBox. Height grows with the row count
+  so bars keep a readable thickness at any project count.
+- `truncate()` shortens names past 18 chars — SVG has no `text-overflow`.
+- Spans both grid columns (`.graph-wide`) so it isn't orphaned in a half-width
+  cell; horizontal bars read better wide.
+- Inherits click-to-zoom, loading and reset states automatically, since all
+  three are wired by `.graph-box` selectors.
+- **Show more / Show less**: shows the top `PROJECTS_VISIBLE` (8) with a toggle
+  revealing the rest. An SVG can't be collapsed with a CSS class the way a list
+  can, so `renderProjectsGraph(expanded)` redraws it at the new length from the
+  cached `allProjects`; the height grows to match. The toggle's click is
+  stopped from bubbling so it doesn't also open the zoom modal.
+
+### Manual verification (needs live session)
+- [ ] Graph lists real projects with plausible XP values
+- [ ] Totals match the same query in GraphiQL, summed per project name
 
 ---
 

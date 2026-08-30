@@ -198,6 +198,11 @@ button:disabled {
   margin: 4px 0;
 }
 
+/* The graph's toggle sits below the SVG, inside the figure. */
+.graph .link-btn {
+  margin-top: 6px;
+}
+
 /* ---- Skills (Ticket 14) ---- */
 .skills {
   margin: 0;
@@ -238,13 +243,20 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-/* Overflow skills stay in the DOM but hidden until "Show more" is pressed. */
-.skills .extra {
+/* Overflow rows stay in the DOM but hidden until "Show more" is pressed.
+   Shared by every collapsible list (skills, recent projects). */
+.extra {
   display: none;
 }
 
+/* Restore each list's own row display when expanded — skill rows are grids,
+   recent-project rows are plain list items. */
 .skills.expanded .extra {
   display: grid;
+}
+
+.recent.expanded .extra {
+  display: list-item;
 }
 
 /* Text-style button: it toggles content rather than submitting anything, so it
@@ -274,6 +286,12 @@ button:disabled {
 @media (min-width: 560px) {
   .graphs {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* The third graph would otherwise sit alone in a half-width cell. Horizontal
+     bars read better wide anyway, so let it span both columns. */
+  .graph-wide {
+    grid-column: 1 / -1;
   }
 }
 
