@@ -275,6 +275,12 @@ button:disabled {
   .graphs {
     grid-template-columns: 1fr 1fr;
   }
+
+  /* The third graph would otherwise sit alone in a half-width cell. Horizontal
+     bars read better wide anyway, so let it span both columns. */
+  .graph-wide {
+    grid-column: 1 / -1;
+  }
 }
 
 .graph {

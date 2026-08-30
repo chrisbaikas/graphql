@@ -364,6 +364,7 @@ function createSvg(width, height) {
 async function loadStatsSection() {
   await drawXpGraph();
   await drawAuditGraph();
+  await drawProjectsGraph();
 }
 
 /* ---------------- GRAPH ZOOM (modal) ---------------- */
@@ -563,6 +564,116 @@ async function drawAuditGraph() {
     box.innerHTML = '<p class="graph-placeholder">Could not load audit graph.</p>';
     showError(`Could not load audit graph: ${err.message}`);
   }
+}
+
+// Ticket 15 (bonus) — SVG Graph #3: XP by project (horizontal bar chart).
+// A third chart type: the other two run vertically, and project names are long,
+// so bars grow left-to-right with the label in the gutter beside each one.
+//
+// Nested query: each xp transaction carries the `object` that earned it, so the
+// project name comes back in the same round trip.
+async function drawProjectsGraph() {
+  const box = document.getElementById("graph-projects");
+  if (!box) return;
+
+  try {
+    const data = await graphqlRequest(`{
+      transaction(
+        where: {
+          type: { _eq: "xp" }
+          object: { type: { _eq: "project" } }
+        }
+        order_by: { amount: desc }
+      ) {
+        amount
+        object {
+          name
+        }
+      }
+    }`);
+    const transactions = data.transaction || [];
+
+    // A project can pay out more than once, so total per name rather than
+    // trusting a single row.
+    const totals = new Map();
+    for (const t of transactions) {
+      const name = (t.object && t.object.name) || "Unknown";
+      totals.set(name, (totals.get(name) || 0) + (t.amount || 0));
+    }
+
+    const projects = [...totals.entries()]
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, PROJECTS_SHOWN);
+
+    if (!projects.length) {
+      box.innerHTML = '<p class="graph-placeholder">No project XP yet.</p>';
+      return;
+    }
+
+    // Local geometry: a wider left gutter than CHART.pad gives, because project
+    // names sit there. Height grows with the row count so bars keep a readable
+    // thickness whether there are three projects or eight.
+    const padLeft = 132;
+    // The longest bar spans the full plot width, so the gutter must fit its
+    // value label ("200.00 kB" ~ 56px at font-size 11) plus the 6px gap.
+    const padRight = 72;
+    const padTop = 12;
+    const padBottom = 24;
+    const rowH = 26;
+    const width = CHART.W;
+    const height = padTop + padBottom + projects.length * rowH;
+    const plotW = width - padLeft - padRight;
+
+    const max = projects[0].amount || 1;
+
+    const svg = createSvg(width, height);
+    svg.setAttribute("aria-label", "XP earned per project");
+
+    // Only a vertical baseline here — a horizontal bar chart has no x axis line
+    // to speak of, and the value labels carry the scale.
+    svg.appendChild(svgEl("line", {
+      x1: padLeft, y1: padTop, x2: padLeft, y2: padTop + projects.length * rowH,
+      stroke: CHART.axis, "stroke-width": 1
+    }));
+
+    const barH = rowH * 0.6;
+    projects.forEach((project, i) => {
+      const y = padTop + i * rowH + (rowH - barH) / 2;
+      const w = Math.max(1, (project.amount / max) * plotW);
+
+      svg.appendChild(svgEl("rect", {
+        x: padLeft, y, width: w, height: barH, fill: "#38bdf8", rx: 3
+      }));
+
+      // Project name in the left gutter, vertically centred on its bar.
+      svg.appendChild(svgText(truncate(project.name, 18), {
+        x: padLeft - 8, y: y + barH / 2,
+        "text-anchor": "end", "dominant-baseline": "middle"
+      }));
+
+      // XP value just past the end of the bar.
+      svg.appendChild(svgText(formatXp(project.amount), {
+        x: padLeft + w + 6, y: y + barH / 2,
+        "dominant-baseline": "middle", fill: CHART.value
+      }));
+    });
+
+    box.innerHTML = "";
+    box.appendChild(svg);
+  } catch (err) {
+    box.innerHTML = '<p class="graph-placeholder">Could not load project graph.</p>';
+    showError(`Could not load project graph: ${err.message}`);
+  }
+}
+
+// How many projects the XP-by-project graph shows.
+const PROJECTS_SHOWN = 8;
+
+// SVG has no text-overflow, so long project names are shortened by hand.
+function truncate(text, max) {
+  const str = String(text);
+  return str.length > max ? `${str.slice(0, max - 1)}…` : str;
 }
 
 /* ---------------- LOGIN ---------------- */

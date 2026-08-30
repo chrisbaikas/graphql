@@ -177,6 +177,35 @@ section and the graph, via `fetchAuditTotals()`).
 
 ---
 
+## Check 7 — Graph 3: XP by project (T15, bonus)
+
+**UI:** Statistics → "XP by project" (full-width horizontal bars).
+
+```graphql
+{
+  transaction(
+    where: {
+      type: { _eq: "xp" }
+      object: { type: { _eq: "project" } }
+    }
+    order_by: { amount: desc }
+  ) {
+    amount
+    object { name }
+  }
+}
+```
+
+Expected: sum `amount` **per `object.name`** (a project can pay out more than
+once), then the top 8 by that total.
+
+- [ ] The listed projects are the 8 highest XP earners, longest bar first
+- [ ] Each value label == that project's summed XP, byte-formatted
+- [ ] Bar lengths are proportional to their values
+- [ ] The listed projects all appear in the platform's own project list
+
+---
+
 ## Cross-section consistency
 
 These must hold within the UI alone, with no GraphiQL needed — a fast
