@@ -131,6 +131,48 @@
           </figure>
         </div>
       </details>
+
+      <!-- Bonus: in-app GraphiQL (Ticket 16) — run arbitrary queries against
+           the platform endpoint with the logged-in user's JWT. Collapsed by
+           default so it doesn't compete with the profile itself. -->
+      <details id="graphiql-section" class="card">
+        <summary><h2>GraphiQL</h2></summary>
+
+        <p class="hint">
+          Run any query against the platform endpoint as the logged-in user.
+          <kbd>Ctrl</kbd>+<kbd>Enter</kbd> runs it.
+        </p>
+
+        <div class="gql-examples">
+          <span class="hint">Examples:</span>
+          <button type="button" class="link-btn gql-example"
+                  data-query="{ user { id login } }">User</button>
+          <button type="button" class="link-btn gql-example"
+                  data-query="{ transaction(where: { type: { _eq: &quot;xp&quot; } }) { amount } }">Total XP</button>
+          <button type="button" class="link-btn gql-example"
+                  data-query="{ transaction(where: { type: { _in: [&quot;up&quot;, &quot;down&quot;] } }) { type amount } }">Audits</button>
+          <button type="button" class="link-btn gql-example"
+                  data-query="{ result(where: { object: { type: { _eq: &quot;project&quot; } } } order_by: { createdAt: desc } limit: 5) { grade object { name type } } }">Recent projects</button>
+        </div>
+
+        <label class="gql-label" for="gql-query">Query</label>
+        <textarea id="gql-query" class="gql-input" rows="8" spellcheck="false"
+                  aria-describedby="gql-status">{ user { id login } }</textarea>
+
+        <label class="gql-label" for="gql-variables">
+          Variables <span class="hint">(JSON, optional)</span>
+        </label>
+        <textarea id="gql-variables" class="gql-input" rows="2"
+                  spellcheck="false" placeholder="{}"></textarea>
+
+        <div class="gql-actions">
+          <button id="gql-run" type="button">Run query</button>
+          <span id="gql-status" class="hint" role="status" aria-live="polite"></span>
+        </div>
+
+        <label class="gql-label" for="gql-result">Result</label>
+        <pre id="gql-result" class="gql-result" tabindex="0">Run a query to see the result.</pre>
+      </details>
     </div>
   </section>
 
