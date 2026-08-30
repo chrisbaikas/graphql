@@ -53,6 +53,7 @@ function showDashboard() {
 // Loads every dashboard section. Each section loader handles its own errors so
 // one failing query doesn't blank the whole profile.
 function loadProfile() {
+  clearDashboardError();
   showLoading();
   loadUserSection();
   loadXpSection();
@@ -432,29 +433,65 @@ function setupGraphModal() {
   const closeBtn = document.getElementById("modal-close");
   if (!modal || !body || !closeBtn) return;
 
-  function openModal(svg) {
+  // Remembered so focus can return where it came from when the modal closes —
+  // otherwise a keyboard user is dumped back at the top of the document.
+  let lastTrigger = null;
+
+  function openModal(svg, trigger) {
     body.innerHTML = "";
     body.appendChild(svg.cloneNode(true));
     modal.hidden = false;
+    lastTrigger = trigger || null;
+    closeBtn.focus();
   }
 
   function closeModal() {
     modal.hidden = true;
     body.innerHTML = "";
+    if (lastTrigger) lastTrigger.focus();
+    lastTrigger = null;
   }
 
-  // Event-delegate: any click inside a .graph-box that contains an <svg> opens it.
+  // Event-delegate: any click inside a .graph-box that contains an <svg> opens
+  // it — except a click on a control inside the box (the graph's own Show more
+  // button), which has its own job.
   document.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
     const box = e.target.closest(".graph-box");
     if (!box) return;
     const svg = box.querySelector("svg");
-    if (svg) openModal(svg);
+    if (svg) openModal(svg, box);
+  });
+
+  // The graph boxes are focusable (tabindex in the markup), so Enter/Space must
+  // open them too — a click handler alone would leave the zoom mouse-only.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const box = e.target.closest && e.target.closest(".graph-box");
+    if (!box) return;
+    const svg = box.querySelector("svg");
+    if (!svg) return;
+    e.preventDefault();
+    openModal(svg, box);
   });
 
   closeBtn.addEventListener("click", closeModal);
   modal.querySelector(".modal-backdrop").addEventListener("click", closeModal);
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !modal.hidden) closeModal();
+    if (modal.hidden) return;
+
+    if (e.key === "Escape") {
+      closeModal();
+      return;
+    }
+
+    // Keep Tab inside the dialog. Close is the only focusable control in there,
+    // so the trap is simply: always come back to it.
+    if (e.key === "Tab") {
+      e.preventDefault();
+      closeBtn.focus();
+    }
   });
 }
 
@@ -970,8 +1007,32 @@ function cleanToken(raw) {
   return raw.trim().replace(/^"+|"+$/g, "").trim();
 }
 
+// Errors go to whichever view is actually on screen. Section failures used to
+// write to the login view's #error, which is hidden once the dashboard is up —
+// so those messages were never seen. Dashboard errors accumulate, because one
+// reload can fail several sections independently and each is worth reporting.
 function showError(message) {
+  const onDashboard = dashboardView && dashboardView.style.display !== "none";
+
+  if (onDashboard) {
+    const box = document.getElementById("dashboard-error");
+    if (!box) return;
+    const existing = box.textContent ? `${box.textContent}\n` : "";
+    box.textContent = `${existing}${message}`;
+    box.hidden = false;
+    return;
+  }
+
   if (errorText) errorText.textContent = message;
+}
+
+// Wipe the dashboard error banner — called before each profile load so stale
+// failures don't survive a successful retry.
+function clearDashboardError() {
+  const box = document.getElementById("dashboard-error");
+  if (!box) return;
+  box.textContent = "";
+  box.hidden = true;
 }
 
 /* ---------------- LOGOUT ---------------- */
@@ -1004,6 +1065,7 @@ function resetProfile() {
   if (skills) skills.innerHTML = "<li>—</li>";
   resetAllOverflow();
   resetPlayground();
+  clearDashboardError();
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }
