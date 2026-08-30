@@ -462,6 +462,48 @@ XP given (Done) vs received (Received), consistent with the T7 section.
 
 ---
 
+## Post-implementation audit (2026-08-31)
+
+A full read of `js/app.js`, `index.html` and `css/style.css` after T17, looking
+for defects rather than polish. Fixed on branch `chbaikas/fixes`:
+
+**Session leaks between users**
+- `logout()` left `allProjects` populated, so one user's project names and XP
+  stayed in memory and could be redrawn for the next. Now cleared.
+- `resetPlayground()` cleared the GraphiQL *result* but left the query and
+  variables the previous user typed in the editors. Both now reset.
+- `resetOverflow()` left `dataset.hidden` and `aria-expanded` from the previous
+  render, so a stale "Show 14 more" could be read back. Both now cleared.
+
+**Wrong information shown to the user**
+- Login mapped **every** non-2xx to "Invalid credentials" — a 500 or 502 from
+  the platform told the user their password was wrong. Now only 401/403 say
+  that; other statuses report a server error.
+- The XP graph took the last cumulative point as its maximum. A negative XP
+  correction breaks that assumption and plots earlier points above the top of
+  the chart. Now uses the real maximum.
+- On an expired token all six section loaders called `logout()` and each wrote
+  to the login view's single error line, so five messages overwrote the first.
+  Only the first now reports (`SilentError` + `reportSectionError`).
+- The playground's bare `catch` labelled every failure "Network error". Now
+  only an actual fetch rejection says that.
+
+**Init-order crashes (found by executing app.js against a stubbed DOM)**
+- `DEFAULT_PLAYGROUND_QUERY` and `allProjects` were declared below the routing
+  that runs at parse time, and the **logged-out** branch reaches both through
+  `logout() → resetProfile()`. Every first visit would have thrown a TDZ
+  `ReferenceError`. Both moved into the config block.
+
+**Comments contradicting the code**
+- Removed a click guard and a `stopPropagation()` that both defended against a
+  conflict that cannot occur (the graphs' Show more buttons sit outside
+  `.graph-box`), along with the comments describing it.
+- "Expand all" also unfolded the GraphiQL card, which index.html says is
+  collapsed by default on purpose. Now excluded.
+- Corrected the hoisting comment to name the real caller (`showLoading`).
+
+---
+
 ## Ticket 12 — Hosting / Deployment
 
 - **Status:** TODO
