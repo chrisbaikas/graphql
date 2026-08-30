@@ -40,7 +40,7 @@ when tickets change.
 | Profile accessible from a host domain                               | T12              |
 | Logout logs the authenticated user out                              | T3               |
 | Mandatory queries used: normal, nested, with arguments              | T8               |
-| **Bonus** — extra information beyond the three sections             | T14              |
+| **Bonus** — extra information beyond the three sections             | T14 (T8)         |
 | **Bonus** — extra graphs beyond the required two                    | T15              |
 | **Bonus** — student created/used their own GraphiQL                 | T16              |
 | **Bonus** — UI respects good practices                              | T17              |
@@ -530,7 +530,7 @@ This is the step an auditor will literally perform, so do it first ourselves.
 
 ## Ticket 14 — Bonus: Extra Information
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P2
 - **Audit mapping:**
   *"+Does the profile showcase additional information beyond the three
@@ -539,13 +539,42 @@ This is the step an auditor will literally perform, so do it first ourselves.
 ### Goal
 Add genuinely useful extra data beyond the three required sections.
 
-### Ideas
-- [ ] Skills breakdown
-- [ ] Recent activity / latest projects
-- [ ] Level, attendance, or piscine stats
+### Delivered
+- [x] **Skills breakdown** — new `#skills-section` card listing the user's
+      skills as labelled percentage bars, with a Show more / Show less toggle
+      when there are more than 6
+- [x] **Recent projects** — `#recent-section` (already shipped under T8, where
+      it served as the nested query; it counts as extra information too)
 
 ### Acceptance criteria
-- [ ] At least one meaningful section exists beyond the three required ones
+- [x] At least one meaningful section exists beyond the three required ones
+      (two do: Skills and Recent projects)
+
+### Implementation notes
+- The platform records skills as transactions whose `type` is prefixed
+  `skill_` (`skill_go`, `skill_prog`, …) where `amount` is a **percentage**,
+  not XP. Matched with `where: { type: { _like: "skill_%" } }` — another
+  "with arguments" query.
+- A skill is re-recorded each time it improves, so the current level is the
+  **highest** amount for that type, not the sum. `loadSkillsSection()` orders
+  by `amount: desc` and keeps the first row per type, then shows the top 6.
+- `formatSkillName()` turns `skill_web-dev` into `Web dev` for display.
+- Rendered as CSS bars rather than SVG, deliberately: the SVG graphs belong to
+  the Statistics section (T9–T11), and keeping this card visually distinct
+  avoids muddying the "fourth section dedicated to graphs" requirement.
+- Shows the top `SKILLS_VISIBLE` (6); any beyond that are rendered but hidden
+  behind a **Show N more / Show less** toggle (`setupSkillsToggle`). The button
+  stays hidden when nothing overflows, and the list re-collapses on reload or
+  logout so it never reopens in a stale expanded state.
+- Bar widths are clamped to 0–100% so an unexpected value can't overflow the
+  card; an empty result renders "No skill data available." instead of an error.
+
+### Manual verification
+- [x] Skills card lists real skills with plausible percentages — verified
+      2026-08-30: 19 skills from Prog 75% down to Sys admin 10%, correctly
+      ordered, names formatted, "Show 13 more" toggle working
+- [ ] Values match `transaction(where: { type: { _like: "skill_%" } })` in
+      GraphiQL, taking the max `amount` per type *(needs GraphiQL)*
 
 ---
 

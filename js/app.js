@@ -43,6 +43,7 @@ function loadProfile() {
   loadXpSection();
   loadGradesSection();
   loadRecentSection();
+  loadSkillsSection();
   loadStatsSection();
 }
 
@@ -55,6 +56,13 @@ function showLoading() {
   }
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>Loading…</li>";
+  const skills = document.getElementById("skills-list");
+  if (skills) {
+    skills.innerHTML = "<li>Loading…</li>";
+    skills.classList.remove("expanded");
+  }
+  const skillsToggle = document.getElementById("skills-toggle");
+  if (skillsToggle) skillsToggle.hidden = true;
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
   }
@@ -198,6 +206,130 @@ async function loadRecentSection() {
     if (listEl) listEl.innerHTML = "<li>—</li>";
     showError(`Could not load recent projects: ${err.message}`);
   }
+}
+
+// Ticket 14 (bonus) — Skills breakdown: extra information beyond the three
+// mandatory sections. The platform records skills as transactions whose `type`
+// is prefixed `skill_` (e.g. `skill_go`, `skill_prog`), where `amount` is a
+// percentage rather than XP. A skill is re-recorded as it improves, so the
+// CURRENT level is the highest amount seen for that type — not the sum.
+//
+// Defensive by design: `skill_%` is matched with `_like`, so if this platform
+// exposes no skill rows at all the card shows an empty state instead of an
+// error. Uses a "with arguments" query.
+async function loadSkillsSection() {
+  const listEl = document.getElementById("skills-list");
+  if (!listEl) return;
+
+  try {
+    const data = await graphqlRequest(`{
+      transaction(
+        where: { type: { _like: "skill_%" } }
+        order_by: { amount: desc }
+      ) {
+        type
+        amount
+      }
+    }`);
+    const transactions = data.transaction || [];
+
+    // Highest amount per skill type — ordered desc above, so the first row for
+    // a given type is already its peak.
+    const best = new Map();
+    for (const t of transactions) {
+      if (!best.has(t.type)) best.set(t.type, t.amount || 0);
+    }
+
+    const skills = [...best.entries()]
+      .map(([type, amount]) => ({ name: formatSkillName(type), amount }))
+      .sort((a, b) => b.amount - a.amount);
+
+    listEl.innerHTML = "";
+    listEl.classList.remove("expanded");
+    const toggle = document.getElementById("skills-toggle");
+    if (toggle) toggle.hidden = true;
+
+    if (!skills.length) {
+      listEl.innerHTML = "<li>No skill data available.</li>";
+      return;
+    }
+
+    // Every skill is rendered; the ones past SKILLS_VISIBLE are marked `extra`
+    // and hidden by CSS until "Show more" reveals them.
+    skills.forEach((skill, i) => {
+      // Percentages are capped at 100 for the bar width only — an out-of-range
+      // value would otherwise overflow the card.
+      const pct = Math.max(0, Math.min(100, skill.amount));
+      const li = document.createElement("li");
+      li.className = i < SKILLS_VISIBLE ? "skill" : "skill extra";
+
+      const name = document.createElement("span");
+      name.className = "skill-name";
+      name.textContent = skill.name;
+
+      const bar = document.createElement("span");
+      bar.className = "skill-bar";
+      const fill = document.createElement("span");
+      fill.className = "skill-fill";
+      fill.style.width = `${pct}%`;
+      bar.appendChild(fill);
+
+      const value = document.createElement("span");
+      value.className = "skill-value";
+      value.textContent = `${skill.amount}%`;
+
+      li.append(name, bar, value);
+      listEl.appendChild(li);
+    });
+
+    // The toggle only earns its place when something is actually hidden.
+    if (toggle && skills.length > SKILLS_VISIBLE) {
+      setSkillsExpanded(false, skills.length - SKILLS_VISIBLE);
+      toggle.hidden = false;
+    }
+  } catch (err) {
+    listEl.innerHTML = "<li>—</li>";
+    const toggle = document.getElementById("skills-toggle");
+    if (toggle) toggle.hidden = true;
+    showError(`Could not load skills: ${err.message}`);
+  }
+}
+
+// How many skills are shown before "Show more" is offered.
+const SKILLS_VISIBLE = 6;
+
+// Show or hide the overflow skills and relabel the button. `hiddenCount` is
+// passed on the first call so the label can name how many are collapsed.
+function setSkillsExpanded(expanded, hiddenCount) {
+  const listEl = document.getElementById("skills-list");
+  const toggle = document.getElementById("skills-toggle");
+  if (!listEl || !toggle) return;
+
+  listEl.classList.toggle("expanded", expanded);
+  if (typeof hiddenCount === "number") toggle.dataset.hidden = hiddenCount;
+
+  const count = toggle.dataset.hidden || "";
+  toggle.textContent = expanded ? "Show less" : `Show ${count} more`;
+  toggle.setAttribute("aria-expanded", String(expanded));
+}
+
+// Wire the Show more / Show less button once on load.
+function setupSkillsToggle() {
+  const toggle = document.getElementById("skills-toggle");
+  const listEl = document.getElementById("skills-list");
+  if (!toggle || !listEl) return;
+
+  toggle.addEventListener("click", () => {
+    setSkillsExpanded(!listEl.classList.contains("expanded"));
+  });
+}
+
+// "skill_go" -> "Go", "skill_web-dev" -> "Web dev". Turns the raw transaction
+// type into something readable in the UI.
+function formatSkillName(type) {
+  const raw = String(type).replace(/^skill_/, "").replace(/[-_]+/g, " ").trim();
+  if (!raw) return type;
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 /* ---------------- STATISTICS (SVG) ---------------- */
@@ -527,6 +659,13 @@ function resetProfile() {
   }
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>—</li>";
+  const skills = document.getElementById("skills-list");
+  if (skills) {
+    skills.innerHTML = "<li>—</li>";
+    skills.classList.remove("expanded");
+  }
+  const skillsToggle = document.getElementById("skills-toggle");
+  if (skillsToggle) skillsToggle.hidden = true;
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }
@@ -648,3 +787,4 @@ function setupSectionControls() {
 // Wire up the graph zoom modal once (adds document-level listeners).
 setupGraphModal();
 setupSectionControls();
+setupSkillsToggle();
