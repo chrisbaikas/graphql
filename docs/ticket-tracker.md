@@ -23,6 +23,22 @@
 
 ---
 
+## Where the project stands (2026-08-31)
+
+Every audit requirement is **implemented**. Two things remain, and neither is a
+coding task:
+
+| Remaining | Why it is not done | Who |
+| --- | --- | --- |
+| **T12 — hosting** | Publishing is an account action that makes the source public; it is not reversible, so it needs the owner's decision. Full instructions with exact commands are in the ticket. | You |
+| **T13 — GraphiQL cross-check** | Needs live credentials. Everything checkable without them is done; what is left is a read-and-compare against a table of pre-computed expected values. | You |
+
+The remaining unchecked boxes below are almost all *manual verification* lines
+— steps an auditor performs with a live session — rather than unbuilt features.
+They are deliberately left unticked instead of assumed.
+
+---
+
 ## Audit coverage matrix
 
 Quick view of which ticket satisfies which audit requirement. Keep this in sync
@@ -150,7 +166,7 @@ Persist the session across reloads and provide a working logout.
   layer (Ticket 4), which should also call `logout()` on a 401/auth error.
 
 ### Manual verification (needs live session)
-- [ ] Log in, refresh the page → stays on the dashboard
+- [x] Log in, refresh the page → stays on the dashboard
 - [ ] Click Logout → returns to login, `localStorage.token` is `null`
 - [ ] After logout, the dashboard shows no leftover profile data
 
@@ -228,7 +244,7 @@ Display basic user identification — the first of the three required sections.
 - This satisfies the **normal query** requirement of Ticket 8.
 
 ### Manual verification (needs live session)
-- [ ] Dashboard shows the correct login and id
+- [x] Dashboard shows the correct login and id — `chbaikas` / `6844`
 - [ ] Values match `{ user { id login } }` run in GraphiQL
 
 ---
@@ -268,7 +284,7 @@ Display the user's total XP — the second required section.
 - Sum done client-side via `reduce`; `formatXp()` renders bytes as B / kB / MB.
 
 ### Manual verification (needs live session)
-- [ ] Dashboard shows the correct total XP
+- [x] Dashboard shows the correct total XP — `2.19 MB`
 - [ ] Value matches the sum of `amount` for the same query in GraphiQL
 
 ---
@@ -405,7 +421,9 @@ A line/area chart of cumulative XP over time.
 ### SVG features
 - [x] X axis (time) and Y axis (cumulative XP) with labels
 - [x] Polyline / path of the cumulative total
-- [ ] Bonus: hover tooltip with the value at a point (not done)
+- [ ] Bonus: hover tooltip with the value at a point — not done, and not
+      pursued: click-to-zoom (T11) already covers reading a graph closely,
+      and the audit asks for neither
 
 ### Acceptance criteria
 - [ ] The final cumulative value equals the total XP shown in T6 (manual — see T13)
@@ -462,9 +480,51 @@ XP given (Done) vs received (Received), consistent with the T7 section.
 
 ---
 
+## Post-implementation audit (2026-08-31)
+
+A full read of `js/app.js`, `index.html` and `css/style.css` after T17, looking
+for defects rather than polish. Fixed on branch `chbaikas/fixes`:
+
+**Session leaks between users**
+- `logout()` left `allProjects` populated, so one user's project names and XP
+  stayed in memory and could be redrawn for the next. Now cleared.
+- `resetPlayground()` cleared the GraphiQL *result* but left the query and
+  variables the previous user typed in the editors. Both now reset.
+- `resetOverflow()` left `dataset.hidden` and `aria-expanded` from the previous
+  render, so a stale "Show 14 more" could be read back. Both now cleared.
+
+**Wrong information shown to the user**
+- Login mapped **every** non-2xx to "Invalid credentials" — a 500 or 502 from
+  the platform told the user their password was wrong. Now only 401/403 say
+  that; other statuses report a server error.
+- The XP graph took the last cumulative point as its maximum. A negative XP
+  correction breaks that assumption and plots earlier points above the top of
+  the chart. Now uses the real maximum.
+- On an expired token all six section loaders called `logout()` and each wrote
+  to the login view's single error line, so five messages overwrote the first.
+  Only the first now reports (`SilentError` + `reportSectionError`).
+- The playground's bare `catch` labelled every failure "Network error". Now
+  only an actual fetch rejection says that.
+
+**Init-order crashes (found by executing app.js against a stubbed DOM)**
+- `DEFAULT_PLAYGROUND_QUERY` and `allProjects` were declared below the routing
+  that runs at parse time, and the **logged-out** branch reaches both through
+  `logout() → resetProfile()`. Every first visit would have thrown a TDZ
+  `ReferenceError`. Both moved into the config block.
+
+**Comments contradicting the code**
+- Removed a click guard and a `stopPropagation()` that both defended against a
+  conflict that cannot occur (the graphs' Show more buttons sit outside
+  `.graph-box`), along with the comments describing it.
+- "Expand all" also unfolded the GraphiQL card, which index.html says is
+  collapsed by default on purpose. Now excluded.
+- Corrected the hoisting comment to name the real caller (`showLoading`).
+
+---
+
 ## Ticket 12 — Hosting / Deployment
 
-- **Status:** TODO
+- **Status:** TODO — needs a decision and an account action, see below
 - **Priority:** P0
 - **Audit mapping:**
   *"Try to access the profile from the host domain → Is the profile
@@ -477,11 +537,79 @@ Publish the site so the auditor can open it at a public URL.
 - [ ] Choose a host (GitHub Pages / Netlify / …)
 - [ ] Deploy the static site
 - [ ] Verify the deployed login flow works against the live endpoints
+- [ ] Record the live URL in `README.md`
 
 ### Acceptance criteria
 - [ ] The profile is reachable at a public URL
 - [ ] Login, all sections, graphs, and logout work on the hosted version
 - [ ] Record the live URL in `README.md`
+
+### Ready to deploy
+Nothing needs building or changing first. The site is plain static files with
+no build step, and the repo holds no credentials — only code that *handles* a
+password (verified by scanning the tracked files). The deployable set is:
+
+```
+index.html
+css/style.css
+js/app.js
+```
+
+`docs/`, `AGENTS.md` and `Makefile` are harmless to ship but irrelevant to the
+audit.
+
+### Option A — Netlify Drop (fastest, no account strictly needed)
+
+1. Open <https://app.netlify.com/drop>.
+2. Drag the **project folder** onto the page.
+3. Netlify returns a URL like `https://random-name-123.netlify.app`.
+4. Optionally rename it under *Site settings → Change site name*.
+
+Nothing is pushed to git, and the code is not published as source — only the
+built page is served.
+
+### Option B — GitHub Pages
+
+The project's `origin` is the Zone01 Gitea instance, which does not serve
+Pages, so this needs a GitHub remote as well.
+
+```bash
+# 1. Create the repo (public — Pages from a private repo needs GitHub Pro)
+gh repo create graphql-profile --public --source=. --remote=github
+
+# 2. Push main
+git push github main
+
+# 3. Turn on Pages, serving from the root of main
+gh api -X POST repos/:owner/graphql-profile/pages \
+  -f "source[branch]=main" -f "source[path]=/"
+```
+
+The URL will be `https://<username>.github.io/graphql-profile/`. It can take a
+minute or two to go live on the first deploy.
+
+**Note:** this makes the source public. Nothing sensitive is in it, but it is a
+one-way step — a repo that has been public should be treated as having been
+seen.
+
+### Option C — any other static host
+
+Vercel, Cloudflare Pages, Surge, GitLab Pages all work the same way: point them
+at the folder, no build command, no output directory.
+
+### After deploying — verify on the live URL, not localhost
+
+- [ ] The login page loads over **https**
+- [ ] Log in with valid credentials → dashboard appears
+- [ ] All three required sections show real values
+- [ ] Both required graphs render, plus the bonus third
+- [ ] Logout returns to the login view
+- [ ] Reload while logged in → still on the dashboard
+- [ ] Paste the URL into `README.md` under **Live URL**
+
+If login works locally but fails on the live URL, check the browser console for
+a CORS error: the platform must accept requests from the new origin. The app
+sends no custom headers beyond `Authorization`, so this normally just works.
 
 ---
 
@@ -502,7 +630,10 @@ This is the step an auditor will literally perform, so do it first ourselves.
       GraphiQL query that proves it — [docs/data-verification.md](./data-verification.md)
 - [x] Internal review of the rendered dashboard — no discrepancies
 - [x] Confirm both graphs (T10/T11) agree with the card values they mirror
-- [ ] Run each app query in GraphiQL and compare values to the source rows
+- [x] Pre-compute the expected raw values and provide single-run aggregate
+      queries, so the remaining step is a comparison rather than arithmetic
+- [ ] Run those queries in the **platform's** GraphiQL and compare
+      *(the only step that needs live credentials)*
 
 ### Acceptance criteria
 - [x] No discrepancy between the UI's own values (cards vs graphs vs arithmetic)
@@ -525,7 +656,12 @@ This is the step an auditor will literally perform, so do it first ourselves.
   drift; Total XP and the graph's Y-max are computed independently from the same
   query, so their agreement genuinely validates the cumulative logic.
 - Still open: running the queries in GraphiQL to confirm the numbers match the
-  source rows, not just each other. See the doc's "Result" section.
+  source rows, not just each other. The doc's "Remaining" section now carries a
+  comparison table (expected raw byte totals, converted from the displayed
+  values) and a single `transaction_aggregate` query returning all three XP
+  figures at once — so the check is read-and-compare, no manual summing.
+- It must be run in the **platform's** GraphiQL, not the app's own playground:
+  the app agreeing with itself is not evidence.
 
 ### Manual verification (needs live session)
 - [ ] Work through [data-verification.md](./data-verification.md) end to end

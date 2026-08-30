@@ -13,15 +13,32 @@ const logoutBtn = document.getElementById("logout-btn");
 const errorText = document.getElementById("error");
 
 // How many rows each collapsible list shows before offering "Show more".
-// Declared up here because the routing below runs immediately on load and
-// reaches resetAllOverflow() — a `const` further down would still be in its
-// temporal dead zone at that point.
+// Declared above the routing below, which runs immediately on load: the
+// logged-in branch reaches showLoading() -> resetAllOverflow(), which reads
+// COLLAPSIBLE_LISTS. A `const` further down would still be in its temporal
+// dead zone at that point.
 const SKILLS_VISIBLE = 6;
 const RECENT_VISIBLE = 5;
 const PROJECTS_VISIBLE = 8;
 
 // Every CSS-collapsible list on the dashboard: [listId, toggleId]. The project
 // graph isn't here — an SVG is redrawn rather than collapsed with a class.
+// Every project with XP, cached so the graph can be redrawn at a different
+// length when expanded. Declared up here because logout() clears it, and the
+// routing below can call logout() before the script body reaches this point.
+let allProjects = [];
+
+// Drop the cached project data so a logout can't leave one user's projects
+// available to the next render.
+function resetProjectsCache() {
+  allProjects = [];
+}
+
+// What the GraphiQL playground editor starts with, and returns to on logout.
+// Up here for the same reason as the constants above: the logged-out branch of
+// the routing calls logout() -> resetProfile() -> resetPlayground() at once.
+const DEFAULT_PLAYGROUND_QUERY = "{ user { id login } }";
+
 const COLLAPSIBLE_LISTS = [
   ["skills-list", "skills-toggle"],
   ["recent-list", "recent-toggle"],
@@ -96,7 +113,7 @@ async function loadUserSection() {
   } catch (err) {
     if (loginEl) loginEl.textContent = "—";
     if (idEl) idEl.textContent = "—";
-    showError(`Could not load user info: ${err.message}`);
+    reportSectionError("Could not load user info", err);
   }
 }
 
@@ -116,7 +133,7 @@ async function loadXpSection() {
     if (totalEl) totalEl.textContent = formatXp(totalXp);
   } catch (err) {
     if (totalEl) totalEl.textContent = "—";
-    showError(`Could not load XP: ${err.message}`);
+    reportSectionError("Could not load XP", err);
   }
 }
 
@@ -173,7 +190,7 @@ async function loadGradesSection() {
     if (doneEl) doneEl.textContent = "—";
     if (receivedEl) receivedEl.textContent = "—";
     if (ratioEl) ratioEl.textContent = "—";
-    showError(`Could not load audit ratio: ${err.message}`);
+    reportSectionError("Could not load audit ratio", err);
   }
 }
 
@@ -221,7 +238,7 @@ async function loadRecentSection() {
   } catch (err) {
     if (listEl) listEl.innerHTML = "<li>—</li>";
     resetOverflow("recent-list", "recent-toggle");
-    showError(`Could not load recent projects: ${err.message}`);
+    reportSectionError("Could not load recent projects", err);
   }
 }
 
@@ -301,7 +318,7 @@ async function loadSkillsSection() {
   } catch (err) {
     listEl.innerHTML = "<li>—</li>";
     resetOverflow("skills-list", "skills-toggle");
-    showError(`Could not load skills: ${err.message}`);
+    reportSectionError("Could not load skills", err);
   }
 }
 
@@ -353,7 +370,12 @@ function resetOverflow(listId, toggleId) {
   const listEl = document.getElementById(listId);
   const toggle = document.getElementById(toggleId);
   if (listEl) listEl.classList.remove("expanded");
-  if (toggle) toggle.hidden = true;
+  if (!toggle) return;
+  toggle.hidden = true;
+  // Clear the remembered count and state as well — a leftover "Show 14 more"
+  // from the previous render would otherwise be read back by setExpanded().
+  delete toggle.dataset.hidden;
+  toggle.setAttribute("aria-expanded", "false");
 }
 
 // Collapse every list and hide the project graph's toggle too — the graph is
@@ -453,10 +475,9 @@ function setupGraphModal() {
   }
 
   // Event-delegate: any click inside a .graph-box that contains an <svg> opens
-  // it — except a click on a control inside the box (the graph's own Show more
-  // button), which has its own job.
+  // it. The graphs' Show more buttons sit outside the box, so they never reach
+  // this handler.
   document.addEventListener("click", (e) => {
-    if (e.target.closest("button")) return;
     const box = e.target.closest(".graph-box");
     if (!box) return;
     const svg = box.querySelector("svg");
@@ -467,6 +488,7 @@ function setupGraphModal() {
   // open them too — a click handler alone would leave the zoom mouse-only.
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
+    if (!modal.hidden) return; // already open — don't stack a second copy
     const box = e.target.closest && e.target.closest(".graph-box");
     if (!box) return;
     const svg = box.querySelector("svg");
@@ -561,7 +583,10 @@ async function drawXpGraph() {
     const { pad, plotW, plotH } = CHART;
     const xMin = points[0].x;
     const xMax = points[points.length - 1].x;
-    const yMax = points[points.length - 1].y; // cumulative, so last is largest
+    // The running total is usually monotonic, so the last point is the largest —
+    // but a negative XP correction would break that and push earlier points
+    // above the plot area, so take the real maximum.
+    const yMax = Math.max(...points.map((p) => p.y));
     const xSpan = xMax - xMin || 1;
     const ySpan = yMax || 1;
 
@@ -600,7 +625,7 @@ async function drawXpGraph() {
     box.appendChild(svg);
   } catch (err) {
     box.innerHTML = '<p class="graph-placeholder">Could not load XP graph.</p>';
-    showError(`Could not load XP graph: ${err.message}`);
+    reportSectionError("Could not load XP graph", err);
   }
 }
 
@@ -653,7 +678,7 @@ async function drawAuditGraph() {
     box.appendChild(svg);
   } catch (err) {
     box.innerHTML = '<p class="graph-placeholder">Could not load audit graph.</p>';
-    showError(`Could not load audit graph: ${err.message}`);
+    reportSectionError("Could not load audit graph", err);
   }
 }
 
@@ -708,14 +733,13 @@ async function drawProjectsGraph() {
     box.innerHTML = '<p class="graph-placeholder">Could not load project graph.</p>';
     const toggle = document.getElementById("projects-toggle");
     if (toggle) toggle.hidden = true;
-    showError(`Could not load project graph: ${err.message}`);
+    reportSectionError("Could not load project graph", err);
   }
 }
 
-// Every project with XP, kept so the graph can be redrawn at a different length
-// when the user expands it. An SVG can't be collapsed with a CSS class the way
-// a list can, so expanding redraws it rather than hiding rows.
-let allProjects = [];
+// `allProjects` (declared with the config at the top of the file) holds every
+// project with XP. An SVG can't be collapsed with a CSS class the way a list
+// can, so expanding redraws the graph rather than hiding rows.
 
 // Draw the XP-by-project bars: the top PROJECTS_VISIBLE, or all of them when
 // `expanded`. Keeps the toggle's label and state in sync.
@@ -733,8 +757,11 @@ function renderProjectsGraph(expanded) {
     toggle.hidden = hidden <= 0;
     if (hidden > 0) {
       toggle.textContent = expanded ? "Show less" : `Show ${hidden} more`;
-      toggle.setAttribute("aria-expanded", String(expanded));
     }
+    // Always written, even while hidden: setupProjectsToggle() reads this
+    // attribute back to decide the next click's direction, so a value left
+    // over from a previous render would flip the toggle the wrong way.
+    toggle.setAttribute("aria-expanded", String(expanded));
   }
 
   try {
@@ -790,18 +817,15 @@ function renderProjectsGraph(expanded) {
     box.appendChild(svg);
   } catch (err) {
     box.innerHTML = '<p class="graph-placeholder">Could not draw project graph.</p>';
-    showError(`Could not draw project graph: ${err.message}`);
+    reportSectionError("Could not draw project graph", err);
   }
 }
 
-// Wire the XP-by-project graph's Show more / Show less button. Clicking the
-// button must not also open the zoom modal, so the click is stopped here
-// (the modal listens for clicks anywhere inside .graph-box).
+// Wire the XP-by-project graph's Show more / Show less button.
 function setupProjectsToggle() {
   const toggle = document.getElementById("projects-toggle");
   if (!toggle) return;
-  toggle.addEventListener("click", (e) => {
-    e.stopPropagation();
+  toggle.addEventListener("click", () => {
     renderProjectsGraph(toggle.getAttribute("aria-expanded") !== "true");
   });
 }
@@ -899,8 +923,13 @@ async function runPlaygroundQuery() {
     } else {
       setStatus(`OK · ${ms} ms`);
     }
-  } catch {
-    resultEl.textContent = "Network error — could not reach the GraphQL server.";
+  } catch (err) {
+    // Only a fetch rejection is a network problem; anything else here (a DOM
+    // failure, a stringify error) would be misreported as one.
+    const isNetwork = err instanceof TypeError;
+    resultEl.textContent = isNetwork
+      ? "Network error — could not reach the GraphQL server."
+      : `Something went wrong: ${err.message}`;
     setStatus("Failed");
   } finally {
     if (runBtn) runBtn.disabled = false;
@@ -939,8 +968,14 @@ function setupPlayground() {
 function resetPlayground() {
   const resultEl = document.getElementById("gql-result");
   const statusEl = document.getElementById("gql-status");
+  const queryEl = document.getElementById("gql-query");
+  const varsEl = document.getElementById("gql-variables");
   if (resultEl) resultEl.textContent = "Run a query to see the result.";
   if (statusEl) statusEl.textContent = "";
+  // The editors too, not just the output: a query someone typed can name ids
+  // or filters that belong to their session, not the next one's.
+  if (queryEl) queryEl.value = DEFAULT_PLAYGROUND_QUERY;
+  if (varsEl) varsEl.value = "";
 }
 
 /* ---------------- LOGIN ---------------- */
@@ -981,9 +1016,17 @@ async function login(event) {
       throw new Error("Network error — could not reach the server.");
     }
 
-    if (!response.ok) {
-      // 401/403 from signin means the credentials were rejected.
+    // Only 401/403 means the credentials were actually rejected. A 500 or 502
+    // is the platform failing, and telling the user their password is wrong
+    // sends them off retrying credentials that were fine.
+    if (response.status === 401 || response.status === 403) {
       throw new Error("Invalid credentials. Please try again.");
+    }
+    if (!response.ok) {
+      throw new Error(
+        `The sign-in server returned an error (${response.status}). ` +
+        "Please try again in a moment."
+      );
     }
 
     const jwt = cleanToken(await response.text());
@@ -1011,7 +1054,23 @@ function cleanToken(raw) {
 // write to the login view's #error, which is hidden once the dashboard is up —
 // so those messages were never seen. Dashboard errors accumulate, because one
 // reload can fail several sections independently and each is worth reporting.
+// A session-ending error whose message may be empty: the first concurrent
+// caller carries the text, the rest are silent so they don't overwrite it.
+class SilentError extends Error {}
+
+// Report a section's failure. A SilentError means the session ended — that is
+// already reported (or deliberately silent), and prefixing it with "Could not
+// load X" would just bury the real message under six copies of itself.
+function reportSectionError(prefix, err) {
+  if (err instanceof SilentError) {
+    showError(err.message);
+    return;
+  }
+  showError(`${prefix}: ${err.message}`);
+}
+
 function showError(message) {
+  if (!message) return;
   const onDashboard = dashboardView && dashboardView.style.display !== "none";
 
   if (onDashboard) {
@@ -1065,6 +1124,7 @@ function resetProfile() {
   if (skills) skills.innerHTML = "<li>—</li>";
   resetAllOverflow();
   resetPlayground();
+  resetProjectsCache();
   clearDashboardError();
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
@@ -1103,9 +1163,15 @@ async function graphqlRequest(query, variables = {}) {
   const jwt = localStorage.getItem("token");
 
   // No usable token — end the session before we even hit the network.
+  // loadProfile() fires several loaders at once, so on an expired token every
+  // one of them lands here. Only the first should speak: the rest would each
+  // overwrite the login view's single #error line with the same message.
   if (!jwt || isTokenExpired(jwt)) {
+    const alreadyLoggedOut = !localStorage.getItem("token");
     logout();
-    throw new Error("Your session has expired. Please log in again.");
+    throw new SilentError(
+      alreadyLoggedOut ? "" : "Your session has expired. Please log in again."
+    );
   }
 
   let response;
@@ -1122,10 +1188,14 @@ async function graphqlRequest(query, variables = {}) {
     throw new Error("Network error — could not reach the GraphQL server.");
   }
 
-  // The server rejected the token (expired/revoked) — force a logout.
+  // The server rejected the token (expired/revoked) — force a logout. As above,
+  // only the first concurrent caller reports it.
   if (response.status === 401 || response.status === 403) {
+    const alreadyLoggedOut = !localStorage.getItem("token");
     logout();
-    throw new Error("Your session is no longer valid. Please log in again.");
+    throw new SilentError(
+      alreadyLoggedOut ? "" : "Your session is no longer valid. Please log in again."
+    );
   }
 
   let result;
@@ -1156,7 +1226,11 @@ function setupSectionControls() {
   const collapseBtn = document.getElementById("collapse-all");
   if (!expandBtn || !collapseBtn) return;
 
-  const cards = () => document.querySelectorAll("#profile .card");
+  // The GraphiQL playground is a card too, but it is a tool rather than profile
+  // content and is deliberately collapsed by default — leave it out so
+  // "Expand all" doesn't unfold it along with the profile sections.
+  const cards = () =>
+    document.querySelectorAll("#profile .card:not(#graphiql-section)");
 
   const refresh = () => {
     const all = [...cards()];
