@@ -483,7 +483,7 @@ Publish the site so the auditor can open it at a public URL.
 
 ## Ticket 13 — Data Accuracy Verification (GraphiQL cross-check)
 
-- **Status:** TODO
+- **Status:** IN PROGRESS
 - **Priority:** P0
 - **Audit mapping:**
   *"Verify the accuracy of the content … using GraphiQL"* and
@@ -494,12 +494,29 @@ A pre-audit pass confirming every displayed number matches the source data.
 This is the step an auditor will literally perform, so do it first ourselves.
 
 ### Tasks
+- [x] Write the cross-check procedure: every UI value paired with the exact
+      GraphiQL query that proves it — [docs/data-verification.md](./data-verification.md)
 - [ ] Run each app query in GraphiQL and compare values to the UI
-- [ ] Confirm total XP (T6), pass/fail and audit ratio (T7) match
+- [ ] Confirm total XP (T6) and Done/Received/ratio (T7) match
 - [ ] Confirm both graphs (T10/T11) reflect the same numbers
 
 ### Acceptance criteria
 - [ ] No discrepancy between the UI and GraphiQL for any displayed value
+- [ ] Every checkbox in [data-verification.md](./data-verification.md) is ticked
+      and its "Result" section filled in
+
+### Implementation notes
+- [docs/data-verification.md](./data-verification.md) has six checks, one per
+  data surface (3 required sections, the nested recent-projects query, and both
+  SVG graphs), each with the query copied verbatim from `js/app.js` and the
+  expected computation spelled out.
+- It also documents the `formatXp()` byte→kB/MB conversion, since GraphiQL
+  returns raw bytes and a mismatch there looks like a data bug but isn't.
+- A "cross-section consistency" block catches the common regressions (graph
+  totals drifting from the card totals) without needing GraphiQL at all.
+
+### Manual verification (needs live session)
+- [ ] Work through [data-verification.md](./data-verification.md) end to end
 
 ---
 
