@@ -9,8 +9,10 @@
 // all — rather than collapse it into a thrown message. So this posts directly
 // and renders whatever comes back, errors included.
 
-import { DEFAULT_PLAYGROUND_QUERY, GRAPHQL_URL, TOKEN_KEY } from "./config.js";
+import { DEFAULT_PLAYGROUND_QUERY, GRAPHQL_URL } from "./config.js";
+import { fetchWithTimeout, TimeoutError } from "./core/http.js";
 import { isTokenExpired } from "./core/jwt.js";
+import { getToken } from "./core/storage.js";
 import { currentSession, endSession, isCurrentSession } from "./core/session.js";
 
 export async function runPlaygroundQuery() {
@@ -44,7 +46,7 @@ export async function runPlaygroundQuery() {
     }
   }
 
-  const jwt = localStorage.getItem(TOKEN_KEY);
+  const jwt = getToken();
   if (!jwt || isTokenExpired(jwt)) {
     endSession();
     return;
@@ -60,7 +62,7 @@ export async function runPlaygroundQuery() {
   const session = currentSession();
 
   try {
-    const response = await fetch(GRAPHQL_URL, {
+    const response = await fetchWithTimeout(GRAPHQL_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -107,6 +109,14 @@ export async function runPlaygroundQuery() {
     }
   } catch (err) {
     if (!isCurrentSession(session)) return;
+    // A timeout is its own outcome — the query may simply be an expensive one,
+    // which is worth saying rather than blaming the network.
+    if (err instanceof TimeoutError) {
+      resultEl.textContent =
+        `${err.message}\nThe query may be too large — try narrowing it with a limit.`;
+      setStatus("Timed out");
+      return;
+    }
     // Only a fetch rejection is a network problem; anything else here (a DOM
     // failure, a stringify error) would be misreported as one.
     const isNetwork = err instanceof TypeError;

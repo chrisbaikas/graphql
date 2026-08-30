@@ -1,6 +1,8 @@
 /* ---------------- AUTH ---------------- */
 
-import { SIGNIN_URL, TOKEN_KEY } from "../config.js";
+import { SIGNIN_URL } from "../config.js";
+import { fetchWithTimeout, TimeoutError } from "./http.js";
+import { clearToken, setToken } from "./storage.js";
 import { showError } from "../ui/errors.js";
 import { resetProfile, showDashboard, showLogin } from "../ui/views.js";
 
@@ -32,13 +34,16 @@ export async function login(event) {
 
     let response;
     try {
-      response = await fetch(SIGNIN_URL, {
+      response = await fetchWithTimeout(SIGNIN_URL, {
         method: "POST",
         headers: {
           "Authorization": `Basic ${credentials}`
         }
       });
-    } catch {
+    } catch (err) {
+      // A timeout is reported as itself: "could not reach the server" is wrong
+      // advice when the server was reached and simply did not answer in time.
+      if (err instanceof TimeoutError) throw err;
       throw new Error("Network error — could not reach the server.");
     }
 
@@ -60,7 +65,14 @@ export async function login(event) {
       throw new Error("Login failed: no token returned by the server.");
     }
 
-    localStorage.setItem(TOKEN_KEY, jwt);
+    if (!setToken(jwt)) {
+      // sessionStorage refused the write (private mode, blocked site data).
+      // Showing the dashboard now would break on the very first query, so say
+      // so here instead.
+      throw new Error(
+        "Could not start a session — this browser is blocking site storage."
+      );
+    }
     // The password must not survive the login. Without this it sits in the
     // input's value for the whole session and is still there — readable from
     // the DOM — when logout brings the same form back into view.
@@ -78,7 +90,7 @@ export async function login(event) {
 // stored token and resets rendered values so no protected data lingers — but
 // keeps the card structure intact so a later re-login can repopulate it.
 export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
+  clearToken();
   // Belt and braces: clear the field on the way out too, so a failed login
   // attempt's password doesn't linger in the form either. The username is
   // deliberately left alone — it isn't a secret, and keeping it is a courtesy.

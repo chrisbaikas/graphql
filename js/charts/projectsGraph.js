@@ -1,6 +1,6 @@
 /* ---------------- SVG GRAPH #3: XP by project ---------------- */
 
-import { CHART, createSvg, svgEl, svgText } from "./svg.js";
+import { CHART, createSvg, svgEl, svgText, withTooltip } from "./svg.js";
 import { PROJECTS_VISIBLE } from "../config.js";
 import { fetchProjectXp } from "../data/profile.js";
 import { formatXp, truncate } from "../ui/format.js";
@@ -109,9 +109,19 @@ export function renderProjectsGraph(expanded) {
       const y = padTop + i * rowH + (rowH - barH) / 2;
       const w = Math.max(1, (project.amount / max) * plotW);
 
-      svg.appendChild(svgEl("rect", {
-        x: padLeft, y, width: w, height: barH, fill: "#38bdf8", rx: 3
-      }));
+      // Grows out from the axis. `transform-origin` is a presentation
+      // attribute rather than an inline style so the CSP's `style-src 'self'`
+      // does not block it; .bar-grow-x in the stylesheet carries the animation
+      // and inherits the existing reduced-motion opt-out.
+      const rect = svgEl("rect", {
+        x: padLeft, y, width: w, height: barH, fill: "#38bdf8", rx: 3,
+        class: "bar-grow-x",
+        "transform-origin": `${padLeft} ${y + barH / 2}`
+      });
+      // The full name, not the truncated label: the gutter text may be cut
+      // short, so hovering is how a long project name is read in full.
+      withTooltip(rect, `${project.name}: ${formatXp(project.amount)}`);
+      svg.appendChild(rect);
 
       // Project name in the left gutter, vertically centred on its bar.
       svg.appendChild(svgText(truncate(project.name, 18), {

@@ -3,7 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GraphQL Profile</title>
+
+  <!-- Everything the app needs and nothing more. `connect-src` names the
+       platform because that is the only host it talks to (signin + GraphQL);
+       `img-src data:` is there for the SVG graphs. No 'unsafe-inline' for
+       scripts and no 'unsafe-eval': every script is an external module.
+       Trusted Types is deliberately left out — the app writes trusted static
+       markup through innerHTML in a few places, and enforcing it would break
+       those silently rather than making anything safer. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 base-uri 'none';
+                 object-src 'none';
+                 script-src 'self';
+                 style-src 'self';
+                 connect-src 'self' https://platform.zone01.gr;
+                 img-src 'self' data:;
+                 form-action 'self';
+                 frame-ancestors 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <title>GraphQL Profile — Zone01 stats dashboard</title>
+  <meta name="description"
+        content="Personal Zone01 profile dashboard: sign in with your platform
+                 account to see your XP, audit ratio, recent projects and skills,
+                 with SVG statistics graphs and a built-in GraphiQL playground.">
+
+  <!-- No binary favicon in the repo, and inventing one would be a low-quality
+       asset for its own sake. This is a hand-written data-URI SVG instead: a
+       few bytes of text, no extra file, and it stops the browser's automatic
+       /favicon.ico 404 on every load. Allowed by `img-src 'self' data:`. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f172a'/%3E%3Cpolyline points='6,24 13,14 19,19 26,8' fill='none' stroke='%2338bdf8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
@@ -30,7 +61,10 @@
   </section>
 
   <!-- DASHBOARD VIEW -->
-  <section id="dashboard-view" style="display:none;">
+  <!-- Starts hidden via a class rather than an inline style attribute, which
+       `style-src 'self'` in the CSP would block. showDashboard()/showLogin()
+       set .style.display from JS, which is CSSOM and unaffected by the CSP. -->
+  <section id="dashboard-view" class="view-hidden">
     <header class="dashboard-header">
       <span class="header-spacer"></span>
       <h1>Dashboard</h1>

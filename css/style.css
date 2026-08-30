@@ -151,6 +151,13 @@ button:disabled {
   background: #475569;
 }
 
+/* The dashboard starts hidden. A class rather than an inline style attribute
+   on the element, which the page's `style-src 'self'` CSP would block.
+   showDashboard()/showLogin() then drive display from JS. */
+.view-hidden {
+  display: none;
+}
+
 /* Honour a reduced-motion preference: no transitions or animations for users
    who have asked the OS to limit them. */
 @media (prefers-reduced-motion: reduce) {
@@ -456,6 +463,70 @@ kbd {
   color: #94a3b8;
   text-align: center;
   margin: 24px 0;
+}
+
+/* ---- Graph entrance animations ----
+   Each graph is rebuilt from scratch on every render, so these run once as the
+   new nodes are inserted — there is no state to reset and no JS involved. The
+   reduced-motion rule above already collapses every animation-duration to
+   0.01ms, so a user who asked for less motion simply sees the final frame. */
+
+/* Vertical bars (audit graph) grow up from the baseline. */
+.bar-grow {
+  animation: bar-grow 0.5s ease-out;
+}
+
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* Horizontal bars (XP by project) grow out from the axis. Deliberately not
+   staggered per row: a per-bar delay would need an inline style attribute,
+   which the CSP blocks, and a class per index for no real gain. */
+.bar-grow-x {
+  animation: bar-grow-x 0.4s ease-out backwards;
+}
+
+@keyframes bar-grow-x {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* The cumulative XP line draws itself left to right. The polyline carries
+   pathLength="1", so one dash covers the whole line whatever its real length. */
+.line-draw {
+  stroke-dasharray: 1;
+  animation: line-draw 0.9s ease-out;
+}
+
+@keyframes line-draw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* The hover dots appear once the line has drawn past them. */
+.dot-fade {
+  animation: dot-fade 0.4s ease-out 0.6s backwards;
+}
+
+@keyframes dot-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Hovering a bar or dot lifts it slightly, so the native <title> tooltip that
+   is about to appear has an obvious source. */
+.bar-grow:hover,
+.bar-grow-x:hover {
+  filter: brightness(1.15);
+}
+
+/* stroke rather than the CSS `r` property, which Firefox does not support on
+   SVG geometry — a ring around the dot works in every browser. */
+.dot-fade:hover {
+  stroke: #e2e8f0;
+  stroke-width: 2;
 }
 
 /* ---- Graph zoom modal (lightbox) ---- */

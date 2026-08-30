@@ -6,7 +6,8 @@ export const DOMAIN = "platform.zone01.gr";
 export const SIGNIN_URL = `https://${DOMAIN}/api/auth/signin`;
 export const GRAPHQL_URL = `https://${DOMAIN}/api/graphql-engine/v1/graphql`;
 
-// The localStorage key the JWT is stored under.
+// The sessionStorage key the JWT is stored under. Reads and writes go through
+// core/storage.js rather than touching storage directly.
 export const TOKEN_KEY = "token";
 
 // How many rows each collapsible list shows before offering "Show more".

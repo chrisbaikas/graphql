@@ -1,6 +1,6 @@
 /* ---------------- SVG GRAPH #2: audit XP done vs received ---------------- */
 
-import { CHART, createSvg, drawAxes, svgEl, svgText } from "./svg.js";
+import { CHART, createSvg, drawAxes, svgEl, svgText, withTooltip } from "./svg.js";
 import { fetchAuditTotals } from "../data/profile.js";
 import { formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
@@ -43,9 +43,21 @@ export async function drawAuditGraph() {
       const x = pad.left + i * slot + (slot - barW) / 2;
       const y = pad.top + plotH - h;
 
-      svg.appendChild(svgEl("rect", {
-        x, y, width: barW, height: h, fill: bar.color, rx: 3
-      }));
+      // The bar grows up from the baseline. `transform-origin` is set as a
+      // presentation ATTRIBUTE, not an inline style: `style-src 'self'` in the
+      // CSP blocks inline style attributes, and a presentation attribute is not
+      // one. The animation itself lives in the stylesheet (.bar-grow), so the
+      // reduced-motion rule already there switches it off.
+      const rect = svgEl("rect", {
+        x, y, width: barW, height: h, fill: bar.color, rx: 3,
+        class: "bar-grow",
+        "transform-origin": `${x + barW / 2} ${pad.top + plotH}`
+      });
+      const share = done + received > 0
+        ? Math.round((bar.value / (done + received)) * 100)
+        : 0;
+      withTooltip(rect, `${bar.label}: ${formatXp(bar.value)} (${share}%)`);
+      svg.appendChild(rect);
       svg.appendChild(svgText(formatXp(bar.value), {
         x: x + barW / 2, y: y - 5, "text-anchor": "middle", fill: CHART.value
       }));

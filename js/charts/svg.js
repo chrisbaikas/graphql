@@ -62,3 +62,19 @@ export function svgText(content, attrs = {}) {
   el.textContent = content;
   return el;
 }
+
+// Attach a hover tooltip to a shape by giving it an SVG <title> child.
+//
+// <title> is the SVG element's accessible name as well as its native tooltip,
+// so one node covers both the mouse and the screen reader — no library, no
+// listeners, no positioning code. It must be the FIRST child to be picked up
+// reliably, hence prepend rather than append.
+//
+// The text is set with textContent, so a project name from the platform is
+// inserted as text and never parsed as markup.
+export function withTooltip(shape, text) {
+  const title = svgEl("title");
+  title.textContent = text;
+  shape.prepend(title);
+  return shape;
+}

@@ -4,8 +4,8 @@
 // Everything here runs after all imports have been evaluated, so there is no
 // ordering hazard between the setup calls and the module state they touch.
 
-import { TOKEN_KEY } from "./config.js";
 import { isTokenExpired } from "./core/jwt.js";
+import { getToken } from "./core/storage.js";
 import { registerSessionEnd } from "./core/session.js";
 import { login, logout } from "./core/auth.js";
 
@@ -35,7 +35,7 @@ setupPlayground();
 
 // Route on load: a valid, unexpired token keeps the user on the dashboard;
 // a missing or expired/invalid token sends them to login (auto-logout).
-const storedToken = localStorage.getItem(TOKEN_KEY);
+const storedToken = getToken();
 if (storedToken && !isTokenExpired(storedToken)) {
   showDashboard();
 } else {

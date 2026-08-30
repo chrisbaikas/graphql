@@ -1,7 +1,9 @@
 /* ---------------- GRAPHQL SERVICE ---------------- */
 
-import { GRAPHQL_URL, TOKEN_KEY } from "../config.js";
+import { GRAPHQL_URL } from "../config.js";
+import { fetchWithTimeout, TimeoutError } from "./http.js";
 import { isTokenExpired } from "./jwt.js";
+import { getToken } from "./storage.js";
 import { endSession, SilentError } from "./session.js";
 
 // The single entry point for every GraphQL call in the app. Sends the query
@@ -9,14 +11,14 @@ import { endSession, SilentError } from "./session.js";
 // `data` object. On any auth failure it logs the user out; on any other failure
 // it throws an Error with a readable message (callers handle the rejection).
 export async function graphqlRequest(query, variables = {}) {
-  const jwt = localStorage.getItem(TOKEN_KEY);
+  const jwt = getToken();
 
   // No usable token — end the session before we even hit the network.
   // loadProfile() fires several loaders at once, so on an expired token every
   // one of them lands here. Only the first should speak: the rest would each
   // overwrite the login view's single #error line with the same message.
   if (!jwt || isTokenExpired(jwt)) {
-    const alreadyLoggedOut = !localStorage.getItem(TOKEN_KEY);
+    const alreadyLoggedOut = !getToken();
     endSession();
     throw new SilentError(
       alreadyLoggedOut ? "" : "Your session has expired. Please log in again."
@@ -25,7 +27,7 @@ export async function graphqlRequest(query, variables = {}) {
 
   let response;
   try {
-    response = await fetch(GRAPHQL_URL, {
+    response = await fetchWithTimeout(GRAPHQL_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -33,14 +35,17 @@ export async function graphqlRequest(query, variables = {}) {
       },
       body: JSON.stringify({ query, variables })
     });
-  } catch {
+  } catch (err) {
+    // As in login(): a timeout keeps its own message rather than being
+    // reported as an unreachable server.
+    if (err instanceof TimeoutError) throw err;
     throw new Error("Network error — could not reach the GraphQL server.");
   }
 
   // The server rejected the token (expired/revoked) — force a logout. As above,
   // only the first concurrent caller reports it.
   if (response.status === 401 || response.status === 403) {
-    const alreadyLoggedOut = !localStorage.getItem(TOKEN_KEY);
+    const alreadyLoggedOut = !getToken();
     endSession();
     throw new SilentError(
       alreadyLoggedOut ? "" : "Your session is no longer valid. Please log in again."

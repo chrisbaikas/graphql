@@ -1,6 +1,6 @@
 /* ---------------- SVG GRAPH #1: cumulative XP over time ---------------- */
 
-import { CHART, createSvg, drawAxes, svgEl, svgText } from "./svg.js";
+import { CHART, createSvg, drawAxes, svgEl, svgText, withTooltip } from "./svg.js";
 import { fetchXpTransactions } from "../data/profile.js";
 import { formatDate, formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
@@ -65,11 +65,32 @@ export async function drawXpGraph() {
       x: pad.left + plotW, y: pad.top + plotH + 16, "text-anchor": "end"
     }));
 
-    // The cumulative line
+    // The cumulative line. `pathLength: 1` normalises the stroke length so the
+    // draw-on animation in the stylesheet can use a dash offset of 1 without
+    // knowing how long this particular line actually is.
     const polyPoints = points.map((p) => `${sx(p.x)},${sy(p.y)}`).join(" ");
     svg.appendChild(svgEl("polyline", {
-      points: polyPoints, fill: "none", stroke: "#38bdf8", "stroke-width": 2
+      points: polyPoints, fill: "none", stroke: "#38bdf8", "stroke-width": 2,
+      pathLength: 1, class: "line-draw"
     }));
+
+    // Hover targets along the line. Only a sample is drawn: a transaction list
+    // can run to hundreds of rows, and one circle each would both clutter the
+    // chart and add hundreds of nodes for no gain. Every point is still in the
+    // line itself — these are just the readable checkpoints, and the last one
+    // is always included so the final total can be inspected.
+    const MAX_DOTS = 24;
+    const step = Math.max(1, Math.ceil(points.length / MAX_DOTS));
+    const sampled = points.filter((_, i) => i % step === 0 || i === points.length - 1);
+
+    for (const point of sampled) {
+      const dot = svgEl("circle", {
+        cx: sx(point.x), cy: sy(point.y), r: 3,
+        fill: "#38bdf8", class: "dot-fade"
+      });
+      withTooltip(dot, `${formatDate(point.x)}: ${formatXp(point.y)} total`);
+      svg.appendChild(dot);
+    }
 
     box.innerHTML = "";
     box.appendChild(svg);
