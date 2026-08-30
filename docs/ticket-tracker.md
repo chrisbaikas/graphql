@@ -651,7 +651,7 @@ Add a third SVG graph (e.g. XP by project, piscine attempts per exercise).
 
 ## Ticket 16 — Bonus: Own GraphiQL
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P2
 - **Audit mapping:**
   *"+Has the student created and utilized their own GraphiQL?"*
@@ -660,8 +660,41 @@ Add a third SVG graph (e.g. XP by project, piscine attempts per exercise).
 Provide an in-app query playground (custom GraphiQL-like panel) authenticated
 with the user's JWT.
 
+### Delivered
+- [x] `#graphiql-section` card with a query editor, an optional variables
+      editor, a Run button and a JSON result pane
+- [x] Four one-click example queries — the same ones that back the profile
+      sections, so the T13 cross-check can be run inside the app itself
+
 ### Acceptance criteria
-- [ ] User can type a query, run it, and see the JSON result inside the app
+- [x] User can type a query, run it, and see the JSON result inside the app
+
+### Implementation notes
+- **Deliberately does not reuse `graphqlRequest()`.** That helper returns only
+  `data` and throws on `errors[]` — correct for the dashboard, wrong for a
+  playground, which must *show* a malformed query's error (message, line,
+  column) rather than collapse it into a thrown string. `runPlaygroundQuery()`
+  posts directly and renders the whole envelope, `errors` and `data` alike.
+- Auth and session handling still match the rest of the app: the JWT is checked
+  for expiry before the request, and a 401/403 triggers `logout()`.
+- Variables are `JSON.parse`d client-side so a JSON typo is reported as such,
+  instead of arriving at the server as a confusing GraphQL error.
+- Status line reports outcome and timing (`OK · 42 ms`, `2 errors · 31 ms`).
+- <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> runs the query from the
+  editor. Example buttons only *load* a query — the user still presses Run, so
+  nothing fires against the endpoint unasked.
+- The card is **collapsed by default** so the playground doesn't compete with
+  the profile itself, and the result pane is height-capped with its own scroll
+  so a large response can't push the dashboard off-screen.
+- `resetPlayground()` clears the result on logout so one session's query output
+  can't linger into the next.
+
+### Manual verification (needs live session)
+- [ ] A valid query returns JSON matching the dashboard
+- [ ] A malformed query shows the GraphQL error rather than a blank pane
+- [ ] Invalid variables JSON is reported before any request is sent
+- [ ] Ctrl+Enter runs the query
+- [ ] After logout, the result pane is cleared
 
 ---
 

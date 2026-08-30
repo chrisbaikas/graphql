@@ -16,9 +16,13 @@ The auditor's questions this answers (see [audit-readme.md](./audit-readme.md)):
    ```bash
    make run   # http://localhost:8042
    ```
-2. Open the platform's GraphiQL at
-   `https://platform.zone01.gr/api/graphql-engine/v1/graphql` (use the
-   platform's GraphiQL UI, logged in as the same user).
+2. Open a GraphiQL. Either works:
+   - **The app's own playground** (Ticket 16) — expand the **GraphiQL** card at
+     the bottom of the dashboard. Its example buttons load the exact queries
+     behind each section, so most checks below are one click plus Run.
+   - The platform's GraphiQL at
+     `https://platform.zone01.gr/api/graphql-engine/v1/graphql`, logged in as
+     the same user — use this to confirm the app isn't validating itself.
 3. For each check below, run the query, compute the expected value, and compare
    it with the value on the dashboard. Tick the box when they match.
 

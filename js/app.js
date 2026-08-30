@@ -775,6 +775,137 @@ function truncate(text, max) {
   return str.length > max ? `${str.slice(0, max - 1)}…` : str;
 }
 
+/* ---------------- GRAPHIQL PLAYGROUND (Ticket 16) ---------------- */
+
+// An in-app query playground: type a query, run it against the platform
+// endpoint with the logged-in user's JWT, and read the JSON back.
+//
+// It deliberately does NOT reuse graphqlRequest(). That helper returns only
+// `data` and throws on `errors[]`, which is right for the dashboard but wrong
+// here: a playground must SHOW a malformed query's error — line, column and
+// all — rather than collapse it into a thrown message. So this posts directly
+// and renders whatever comes back, errors included.
+async function runPlaygroundQuery() {
+  const queryEl = document.getElementById("gql-query");
+  const varsEl = document.getElementById("gql-variables");
+  const resultEl = document.getElementById("gql-result");
+  const runBtn = document.getElementById("gql-run");
+  const statusEl = document.getElementById("gql-status");
+  if (!queryEl || !resultEl) return;
+
+  const query = queryEl.value.trim();
+  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
+
+  if (!query) {
+    resultEl.textContent = "Enter a query first.";
+    setStatus("");
+    return;
+  }
+
+  // Variables are parsed here so a JSON typo is reported as such, rather than
+  // reaching the server as a confusing GraphQL error.
+  let variables = {};
+  const rawVars = varsEl ? varsEl.value.trim() : "";
+  if (rawVars) {
+    try {
+      variables = JSON.parse(rawVars);
+    } catch (err) {
+      resultEl.textContent = `Variables are not valid JSON:\n${err.message}`;
+      setStatus("Invalid variables");
+      return;
+    }
+  }
+
+  const jwt = localStorage.getItem("token");
+  if (!jwt || isTokenExpired(jwt)) {
+    logout();
+    return;
+  }
+
+  if (runBtn) runBtn.disabled = true;
+  setStatus("Running…");
+  const startedAt = Date.now();
+
+  try {
+    const response = await fetch(GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${jwt}`
+      },
+      body: JSON.stringify({ query, variables })
+    });
+
+    // A rejected token ends the session here as it would anywhere else.
+    if (response.status === 401 || response.status === 403) {
+      logout();
+      return;
+    }
+
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      resultEl.textContent = "The server returned a non-JSON response.";
+      setStatus("Failed");
+      return;
+    }
+
+    // Render the whole envelope — `errors` and `data` alike — so a failed query
+    // is as informative as a successful one.
+    resultEl.textContent = JSON.stringify(result, null, 2);
+
+    const ms = Date.now() - startedAt;
+    if (result.errors && result.errors.length) {
+      const count = result.errors.length;
+      setStatus(`${count} error${count === 1 ? "" : "s"} · ${ms} ms`);
+    } else {
+      setStatus(`OK · ${ms} ms`);
+    }
+  } catch {
+    resultEl.textContent = "Network error — could not reach the GraphQL server.";
+    setStatus("Failed");
+  } finally {
+    if (runBtn) runBtn.disabled = false;
+  }
+}
+
+// Wire the playground once on load: the Run button, Ctrl/Cmd+Enter inside the
+// editor, and the example-query buttons.
+function setupPlayground() {
+  const runBtn = document.getElementById("gql-run");
+  const queryEl = document.getElementById("gql-query");
+  if (!runBtn || !queryEl) return;
+
+  runBtn.addEventListener("click", runPlaygroundQuery);
+
+  // Ctrl+Enter (Cmd+Enter on a Mac) runs without reaching for the mouse.
+  queryEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      runPlaygroundQuery();
+    }
+  });
+
+  // Example buttons load a query into the editor; the user still presses Run,
+  // so nothing fires against the endpoint unasked.
+  for (const btn of document.querySelectorAll(".gql-example")) {
+    btn.addEventListener("click", () => {
+      queryEl.value = btn.dataset.query || "";
+      queryEl.focus();
+    });
+  }
+}
+
+// Clear the playground's result pane — called on logout so one user's query
+// output can't linger for the next.
+function resetPlayground() {
+  const resultEl = document.getElementById("gql-result");
+  const statusEl = document.getElementById("gql-status");
+  if (resultEl) resultEl.textContent = "Run a query to see the result.";
+  if (statusEl) statusEl.textContent = "";
+}
+
 /* ---------------- LOGIN ---------------- */
 
 if (loginForm) {
@@ -872,6 +1003,7 @@ function resetProfile() {
   const skills = document.getElementById("skills-list");
   if (skills) skills.innerHTML = "<li>—</li>";
   resetAllOverflow();
+  resetPlayground();
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }
@@ -995,3 +1127,4 @@ setupGraphModal();
 setupSectionControls();
 setupToggles();
 setupProjectsToggle();
+setupPlayground();
