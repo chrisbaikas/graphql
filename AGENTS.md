@@ -15,6 +15,9 @@ Read these before making changes:
 - [docs/audit-readme.md](docs/audit-readme.md) — the exact audit checklist
 - [docs/ticket-tracker.md](docs/ticket-tracker.md) — work plan; each ticket maps
   to audit criteria. Keep statuses/checkboxes updated as you complete work.
+- [docs/data-verification.md](docs/data-verification.md) — the GraphiQL
+  cross-check procedure (Ticket 13): every displayed value paired with the query
+  that proves it. Run it before an audit and after changing any query.
 
 ## Tech stack & constraints
 

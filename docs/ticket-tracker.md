@@ -483,7 +483,7 @@ Publish the site so the auditor can open it at a public URL.
 
 ## Ticket 13 — Data Accuracy Verification (GraphiQL cross-check)
 
-- **Status:** TODO
+- **Status:** IN PROGRESS
 - **Priority:** P0
 - **Audit mapping:**
   *"Verify the accuracy of the content … using GraphiQL"* and
@@ -494,12 +494,37 @@ A pre-audit pass confirming every displayed number matches the source data.
 This is the step an auditor will literally perform, so do it first ourselves.
 
 ### Tasks
-- [ ] Run each app query in GraphiQL and compare values to the UI
-- [ ] Confirm total XP (T6), pass/fail and audit ratio (T7) match
-- [ ] Confirm both graphs (T10/T11) reflect the same numbers
+- [x] Write the cross-check procedure: every UI value paired with the exact
+      GraphiQL query that proves it — [docs/data-verification.md](./data-verification.md)
+- [x] Internal review of the rendered dashboard — no discrepancies
+- [x] Confirm both graphs (T10/T11) agree with the card values they mirror
+- [ ] Run each app query in GraphiQL and compare values to the source rows
 
 ### Acceptance criteria
+- [x] No discrepancy between the UI's own values (cards vs graphs vs arithmetic)
 - [ ] No discrepancy between the UI and GraphiQL for any displayed value
+- [ ] Every checkbox in [data-verification.md](./data-verification.md) is ticked
+
+### Implementation notes
+- [docs/data-verification.md](./data-verification.md) has six checks, one per
+  data surface (3 required sections, the nested recent-projects query, and both
+  SVG graphs), each with the query copied verbatim from `js/app.js` and the
+  expected computation spelled out.
+- It also documents the `formatXp()` byte→kB/MB conversion, since GraphiQL
+  returns raw bytes and a mismatch there looks like a data bug but isn't.
+- A "cross-section consistency" block catches the common regressions (graph
+  totals drifting from the card totals) without needing GraphiQL at all.
+- **Internal review (2026-08-30) found no discrepancies.** Total XP `2.19 MB`,
+  Done `790.35 kB`, Received `968.59 kB`, Ratio `0.8` — the ratio arithmetic
+  checks out (0.8159… → 0.8) and both graphs match the cards they mirror. The
+  audit card and bar chart share one `fetchAuditTotals()` call so they cannot
+  drift; Total XP and the graph's Y-max are computed independently from the same
+  query, so their agreement genuinely validates the cumulative logic.
+- Still open: running the queries in GraphiQL to confirm the numbers match the
+  source rows, not just each other. See the doc's "Result" section.
+
+### Manual verification (needs live session)
+- [ ] Work through [data-verification.md](./data-verification.md) end to end
 
 ---
 
