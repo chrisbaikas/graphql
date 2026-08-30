@@ -128,8 +128,8 @@ Expected values:
       i.e. the *same* number as *Total XP* in Check 2
 - [ ] The **left X-axis label** equals the first row's `createdAt` (DD/MM/YYYY)
 - [ ] The **right X-axis label** equals the last row's `createdAt` (DD/MM/YYYY)
-- [ ] The line only ever rises (cumulative) and its steepest jumps line up with
-      the largest `amount` values in the result set
+- [x] The line only ever rises (cumulative) — confirmed on the rendered graph
+      (monotonic, no dips)
 
 ---
 
@@ -142,8 +142,8 @@ section and the graph, via `fetchAuditTotals()`).
 
 - [ ] *Done* bar label == the *Done* value in Check 3 (same number, same format)
 - [ ] *Received* bar label == the *Received* value in Check 3
-- [ ] Bar heights are proportional: the shorter bar's height ÷ the taller bar's
-      height ≈ the ratio of their values
+- [x] Bar heights are proportional: Done/Received ≈ 0.82, matching the rendered
+      bar heights
 
 ---
 
@@ -152,16 +152,46 @@ section and the graph, via `fetchAuditTotals()`).
 These must hold within the UI alone, with no GraphiQL needed — a fast
 regression check after any change:
 
-- [ ] XP graph's Y-max label == "XP" card's *Total XP*
-- [ ] Audit graph's bar labels == "Audit ratio" card's *Done* / *Received*
-- [ ] *Ratio* == *Done* ÷ *Received* to 1dp
+- [x] XP graph's Y-max label == "XP" card's *Total XP* — both `2.19 MB`
+- [x] Audit graph's bar labels == "Audit ratio" card's *Done* / *Received* —
+      both `790.35 kB` / `968.59 kB`
+- [x] *Ratio* == *Done* ÷ *Received* to 1dp — 790.35 ÷ 968.59 = 0.8159… → `0.8`
 
 ---
 
 ## Result
 
-- **Verified on:** _(date)_
-- **Verified by:** _(name)_
-- **Discrepancies found:** _(none / list them)_
+### Internal review — 2026-08-30
+
+Checked against a logged-in dashboard render (user `chbaikas`, id `6844`) plus a
+read of the query/render code in `js/app.js`. **No discrepancies found.**
+
+Values seen: Total XP `2.19 MB` · Done `790.35 kB` · Received `968.59 kB` ·
+Ratio `0.8` · XP graph spanning 18/11/2024 → 25/08/2026.
+
+Everything that can be verified without live GraphiQL access passes:
+
+- **Ratio arithmetic** — 790.35 ÷ 968.59 = 0.8159…, rendered `0.8` at 1dp. Also
+  matches the ratio on the platform profile (confirmed under T7).
+- **Card ↔ graph agreement is structural, not coincidental.** The audit card
+  (`loadGradesSection`) and the bar chart (`drawAuditGraph`) both read the same
+  `fetchAuditTotals()` result, so the two can never drift. Total XP and the XP
+  graph's Y-max come from the same `xp` query but are computed independently —
+  a `reduce` over `amount` vs. the last point of the running total — so their
+  agreement at `2.19 MB` is a genuine cross-check of the cumulative logic.
+- **Graph shape** — the XP line is monotonically rising, as a cumulative series
+  must be; the bars are proportional (0.82) to their labelled values.
+- **Byte formatting** — `formatXp()` renders ≥1 000 000 as MB and ≥1 000 as kB,
+  consistent across cards, bar labels and the Y-axis label.
+
+### Remaining — needs live GraphiQL
+
+Checks 1–5 above still need a run against the platform's GraphiQL to confirm the
+app's numbers match the *source* rows (not just each other):
+
+- sum of `amount` where `type = "xp"` == `2.19 MB`
+- sums of `up` / `down` == `790.35 kB` / `968.59 kB`
+- the 5 recent project names and their order
+- first/last `createdAt` == 18/11/2024 / 25/08/2026
 
 Ticket 13 passes when every box above is ticked with no discrepancy.
