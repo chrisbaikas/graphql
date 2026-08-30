@@ -42,6 +42,10 @@
       <button id="collapse-all" type="button" class="btn-secondary">Collapse all</button>
     </div>
 
+    <!-- Dashboard errors surface here. The login view's #error is hidden while
+         the dashboard is shown, so section failures need their own region. -->
+    <p id="dashboard-error" class="error" role="alert" hidden></p>
+
     <div id="profile">
       <!-- Section 1: User identification -->
       <details id="user-section" class="card" open>
@@ -108,20 +112,23 @@
         <div class="graphs">
           <figure class="graph">
             <figcaption>XP over time</figcaption>
-            <div id="graph-xp" class="graph-box">
+            <div id="graph-xp" class="graph-box" tabindex="0" role="button"
+                 aria-label="XP over time graph — activate to enlarge">
               <p class="graph-placeholder">—</p>
             </div>
           </figure>
           <figure class="graph">
             <figcaption>Audit ratio</figcaption>
-            <div id="graph-audit" class="graph-box">
+            <div id="graph-audit" class="graph-box" tabindex="0" role="button"
+                 aria-label="Audit ratio graph — activate to enlarge">
               <p class="graph-placeholder">—</p>
             </div>
           </figure>
           <!-- Bonus third graph (Ticket 15) -->
           <figure class="graph graph-wide">
             <figcaption>XP by project</figcaption>
-            <div id="graph-projects" class="graph-box">
+            <div id="graph-projects" class="graph-box" tabindex="0" role="button"
+                 aria-label="XP by project graph — activate to enlarge">
               <p class="graph-placeholder">—</p>
             </div>
             <button id="projects-toggle" type="button" class="link-btn"
@@ -170,8 +177,9 @@
           <span id="gql-status" class="hint" role="status" aria-live="polite"></span>
         </div>
 
-        <label class="gql-label" for="gql-result">Result</label>
-        <pre id="gql-result" class="gql-result" tabindex="0">Run a query to see the result.</pre>
+        <span class="gql-label" id="gql-result-label">Result</span>
+        <pre id="gql-result" class="gql-result" tabindex="0"
+             role="region" aria-labelledby="gql-result-label">Run a query to see the result.</pre>
       </details>
     </div>
   </section>

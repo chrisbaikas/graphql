@@ -18,6 +18,15 @@ input {
   width: 100%;
 }
 
+/* One visible focus ring for every interactive element — keyboard users need
+   to see where they are. :focus-visible so a mouse click doesn't leave a ring
+   behind. */
+:where(button, a, input, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 button {
   padding: 10px 15px;
   cursor: pointer;
@@ -78,6 +87,24 @@ button:disabled {
   text-align: center;
 }
 
+/* The dashboard's own error banner. Left-aligned and boxed, because it can
+   list several section failures at once; `white-space: pre-line` keeps each
+   on its own line. It stays out of the layout entirely when [hidden]. */
+#dashboard-error {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  text-align: left;
+  white-space: pre-line;
+  background: #2a1416;
+  border: 1px solid #7f1d1d;
+  border-radius: 6px;
+  min-height: 0;
+}
+
+#dashboard-error[hidden] {
+  display: none;
+}
+
 /* ---- Dashboard header: title centred, logout top-right ---- */
 .dashboard-header {
   display: grid;
@@ -122,6 +149,19 @@ button:disabled {
 
 .btn-secondary:hover {
   background: #475569;
+}
+
+/* Honour a reduced-motion preference: no transitions or animations for users
+   who have asked the OS to limit them. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ---- Profile cards ---- */
@@ -276,9 +316,32 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* Narrow screens: give long skill names room by letting them sit above their
+   bar, and let the run row wrap rather than squeezing the status text. */
+@media (max-width: 420px) {
+  .skill {
+    grid-template-columns: 1fr auto;
+  }
+
+  .skill-bar {
+    grid-column: 1 / -1;
+    order: 1;
+  }
+
+  .gql-actions {
+    flex-wrap: wrap;
+  }
+
+  .section-controls {
+    flex-wrap: wrap;
+  }
+}
+
 /* ---- GraphiQL playground (Ticket 16) ---- */
+/* #94a3b8, not a dimmer grey: at 5.71:1 on the card background this clears
+   WCAG AA for body text, where #64748b only reached 3.07:1. */
 .hint {
-  color: #64748b;
+  color: #94a3b8;
   font-size: 0.9em;
 }
 
@@ -390,7 +453,7 @@ kbd {
 }
 
 .graph-placeholder {
-  color: #64748b;
+  color: #94a3b8;
   text-align: center;
   margin: 24px 0;
 }

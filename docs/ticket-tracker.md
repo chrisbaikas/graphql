@@ -700,7 +700,7 @@ with the user's JWT.
 
 ## Ticket 17 — Bonus: UI / Good Practices
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P2
 - **Audit mapping:**
   *"+Does the UI respect the good practices?"*
@@ -709,10 +709,48 @@ with the user's JWT.
 Polish the interface to good-UI standards.
 
 ### Tasks
-- [ ] Loading states for async data
-- [ ] Empty / error states
-- [ ] Responsive layout, readable contrast, consistent spacing
-- [ ] Accessible labels on inputs and buttons
+- [x] Loading states for async data
+- [x] Empty / error states
+- [x] Responsive layout, readable contrast, consistent spacing
+- [x] Accessible labels on inputs and buttons
 
 ### Acceptance criteria
-- [ ] The UI is responsive, gives feedback during/after actions, and is legible
+- [x] The UI is responsive, gives feedback during/after actions, and is legible
+
+### What was already in place
+Much of this arrived with earlier tickets rather than as a late polish pass:
+`showLoading()` fills every value slot with "Loading…" (T5–T11), each section
+has its own empty and error state, the login form has real labels plus
+`autocomplete` and `required`, the layout uses only max-widths, and the graphs
+scale via `viewBox`.
+
+### Fixed in this ticket
+- **Dashboard errors were invisible.** All nine section-failure messages went
+  to `#error`, which lives inside the login view and is hidden once the
+  dashboard is up — so a failed XP or skills query reported nothing at all.
+  `showError()` now routes to whichever view is on screen, and the new
+  `#dashboard-error` banner accumulates failures (one reload can break several
+  sections independently). Cleared on each load and on logout.
+- **Contrast below WCAG AA.** `.hint` and `.graph-placeholder` used `#64748b`
+  — 3.07:1 on the card background, under the 4.5:1 body-text floor. Moved to
+  `#94a3b8` (5.71:1). Measured, not eyeballed; the remaining `#475569` is a
+  hover background and an axis stroke, neither of which is text.
+- **Focus was mostly invisible.** Only two elements had a focus style. Added
+  one `:focus-visible` ring covering every interactive element.
+- **The graph zoom was mouse-only.** The `.graph-box` elements now carry
+  `tabindex`/`role`/`aria-label` and respond to Enter and Space.
+- **The modal ignored focus.** Opening it now moves focus to Close, Tab is kept
+  inside the dialog, and closing returns focus to the graph that opened it.
+- **A click on the graph's Show more also opened the zoom modal** — the modal's
+  delegated handler now ignores clicks that land on a button.
+- **`<label for>` pointed at a `<pre>`**, which isn't a labelable element;
+  replaced with `aria-labelledby` on a `role="region"`.
+- **Narrow screens**: below 420px, skill names sit above their bar instead of
+  squeezing it, and the run/controls rows wrap.
+- **`prefers-reduced-motion`** is honoured.
+
+### Manual verification
+- [ ] Tab through the page — every stop is visibly focused
+- [ ] Tab to a graph, press Enter — it zooms; Escape closes and focus returns
+- [ ] Break a query in the playground — the error appears in the banner
+- [ ] Resize to ~360px — nothing overflows horizontally
