@@ -506,7 +506,7 @@ for defects rather than polish. Fixed on branch `chbaikas/fixes`:
 
 ## Ticket 12 — Hosting / Deployment
 
-- **Status:** TODO
+- **Status:** TODO — needs a decision and an account action, see below
 - **Priority:** P0
 - **Audit mapping:**
   *"Try to access the profile from the host domain → Is the profile
@@ -519,11 +519,79 @@ Publish the site so the auditor can open it at a public URL.
 - [ ] Choose a host (GitHub Pages / Netlify / …)
 - [ ] Deploy the static site
 - [ ] Verify the deployed login flow works against the live endpoints
+- [ ] Record the live URL in `README.md`
 
 ### Acceptance criteria
 - [ ] The profile is reachable at a public URL
 - [ ] Login, all sections, graphs, and logout work on the hosted version
 - [ ] Record the live URL in `README.md`
+
+### Ready to deploy
+Nothing needs building or changing first. The site is plain static files with
+no build step, and the repo holds no credentials — only code that *handles* a
+password (verified by scanning the tracked files). The deployable set is:
+
+```
+index.html
+css/style.css
+js/app.js
+```
+
+`docs/`, `AGENTS.md` and `Makefile` are harmless to ship but irrelevant to the
+audit.
+
+### Option A — Netlify Drop (fastest, no account strictly needed)
+
+1. Open <https://app.netlify.com/drop>.
+2. Drag the **project folder** onto the page.
+3. Netlify returns a URL like `https://random-name-123.netlify.app`.
+4. Optionally rename it under *Site settings → Change site name*.
+
+Nothing is pushed to git, and the code is not published as source — only the
+built page is served.
+
+### Option B — GitHub Pages
+
+The project's `origin` is the Zone01 Gitea instance, which does not serve
+Pages, so this needs a GitHub remote as well.
+
+```bash
+# 1. Create the repo (public — Pages from a private repo needs GitHub Pro)
+gh repo create graphql-profile --public --source=. --remote=github
+
+# 2. Push main
+git push github main
+
+# 3. Turn on Pages, serving from the root of main
+gh api -X POST repos/:owner/graphql-profile/pages \
+  -f "source[branch]=main" -f "source[path]=/"
+```
+
+The URL will be `https://<username>.github.io/graphql-profile/`. It can take a
+minute or two to go live on the first deploy.
+
+**Note:** this makes the source public. Nothing sensitive is in it, but it is a
+one-way step — a repo that has been public should be treated as having been
+seen.
+
+### Option C — any other static host
+
+Vercel, Cloudflare Pages, Surge, GitLab Pages all work the same way: point them
+at the folder, no build command, no output directory.
+
+### After deploying — verify on the live URL, not localhost
+
+- [ ] The login page loads over **https**
+- [ ] Log in with valid credentials → dashboard appears
+- [ ] All three required sections show real values
+- [ ] Both required graphs render, plus the bonus third
+- [ ] Logout returns to the login view
+- [ ] Reload while logged in → still on the dashboard
+- [ ] Paste the URL into `README.md` under **Live URL**
+
+If login works locally but fails on the live URL, check the browser console for
+a CORS error: the platform must accept requests from the new origin. The app
+sends no custom headers beyond `Authorization`, so this normally just works.
 
 ---
 
@@ -544,7 +612,10 @@ This is the step an auditor will literally perform, so do it first ourselves.
       GraphiQL query that proves it — [docs/data-verification.md](./data-verification.md)
 - [x] Internal review of the rendered dashboard — no discrepancies
 - [x] Confirm both graphs (T10/T11) agree with the card values they mirror
-- [ ] Run each app query in GraphiQL and compare values to the source rows
+- [x] Pre-compute the expected raw values and provide single-run aggregate
+      queries, so the remaining step is a comparison rather than arithmetic
+- [ ] Run those queries in the **platform's** GraphiQL and compare
+      *(the only step that needs live credentials)*
 
 ### Acceptance criteria
 - [x] No discrepancy between the UI's own values (cards vs graphs vs arithmetic)
@@ -567,7 +638,12 @@ This is the step an auditor will literally perform, so do it first ourselves.
   drift; Total XP and the graph's Y-max are computed independently from the same
   query, so their agreement genuinely validates the cumulative logic.
 - Still open: running the queries in GraphiQL to confirm the numbers match the
-  source rows, not just each other. See the doc's "Result" section.
+  source rows, not just each other. The doc's "Remaining" section now carries a
+  comparison table (expected raw byte totals, converted from the displayed
+  values) and a single `transaction_aggregate` query returning all three XP
+  figures at once — so the check is read-and-compare, no manual summing.
+- It must be run in the **platform's** GraphiQL, not the app's own playground:
+  the app agreeing with itself is not evidence.
 
 ### Manual verification (needs live session)
 - [ ] Work through [data-verification.md](./data-verification.md) end to end

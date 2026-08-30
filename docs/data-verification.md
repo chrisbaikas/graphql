@@ -251,12 +251,70 @@ Everything that can be verified without live GraphiQL access passes:
 
 ### Remaining — needs live GraphiQL
 
-Checks 1–5 above still need a run against the platform's GraphiQL to confirm the
-app's numbers match the *source* rows (not just each other):
+The checks above confirm the UI is *self*-consistent. What is still open is
+whether those numbers match the **source rows**. If a query had a wrong filter,
+every displayed value would be equally consistent and equally wrong.
 
-- sum of `amount` where `type = "xp"` == `2.19 MB`
-- sums of `up` / `down` == `790.35 kB` / `968.59 kB`
-- the 5 recent project names and their order
-- first/last `createdAt` == 18/11/2024 / 25/08/2026
+GraphiQL returns **raw bytes**, so here are the values to compare against —
+already converted, so this is a comparison rather than arithmetic:
+
+| Run this in GraphiQL | Expected raw result |
+| --- | --- |
+| sum of `amount` where `type = "xp"` | between **2,185,000** and **2,195,000** (displays `2.19 MB`) |
+| sum of `amount` where `type = "up"` | ≈ **790,350** (displays `790.35 kB`) |
+| sum of `amount` where `type = "down"` | ≈ **968,590** (displays `968.59 kB`) |
+| earliest xp `createdAt` | **18/11/2024** |
+| latest xp `createdAt` | **25/08/2026** |
+| `790350 / 968590` | **0.816** → displays `0.8` |
+
+Plus the non-numeric ones:
+
+- the 5 recent project names, newest first, and their pass/fail from `grade >= 1`
+- each skill's percentage == the **max** `amount` for that `skill_*` type
+- the 8 project bars == XP **summed per** `object.name`
+
+**Do this in the platform's own GraphiQL, not the app's playground.** The app
+running its own queries and agreeing with itself proves nothing — the point is
+to check it against an independent client.
+
+#### One query for all the totals
+
+Hasura can do the summing, so the three XP figures come back in a single run
+with no manual arithmetic:
+
+```graphql
+{
+  xp: transaction_aggregate(where: { type: { _eq: "xp" } }) {
+    aggregate { sum { amount } count }
+  }
+  up: transaction_aggregate(where: { type: { _eq: "up" } }) {
+    aggregate { sum { amount } }
+  }
+  down: transaction_aggregate(where: { type: { _eq: "down" } }) {
+    aggregate { sum { amount } }
+  }
+}
+```
+
+Compare `xp.sum.amount`, `up.sum.amount` and `down.sum.amount` to the table
+above. And for the two dates:
+
+```graphql
+{
+  first: transaction(
+    where: { type: { _eq: "xp" } }
+    order_by: { createdAt: asc }
+    limit: 1
+  ) { createdAt }
+  last: transaction(
+    where: { type: { _eq: "xp" } }
+    order_by: { createdAt: desc }
+    limit: 1
+  ) { createdAt }
+}
+```
+
+If `transaction_aggregate` is not exposed on this platform, fall back to the
+plain queries in Checks 2 and 3 and sum the rows yourself.
 
 Ticket 13 passes when every box above is ticked with no discrepancy.
