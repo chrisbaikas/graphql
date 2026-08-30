@@ -84,7 +84,7 @@ docs/               # instructions, audit criteria, ticket tracker
 ## Run / verify
 
 ```bash
-make run          # serves on http://localhost:8000 (override: make run PORT=9000)
+make run          # serves on http://localhost:8042 (override: make run PORT=9000)
 ```
 
 **Must be served over HTTP.** This is now a hard requirement, not a caution:

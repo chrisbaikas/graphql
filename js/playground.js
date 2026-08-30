@@ -11,7 +11,7 @@
 
 import { DEFAULT_PLAYGROUND_QUERY, GRAPHQL_URL, TOKEN_KEY } from "./config.js";
 import { isTokenExpired } from "./core/jwt.js";
-import { endSession } from "./core/session.js";
+import { currentSession, endSession, isCurrentSession } from "./core/session.js";
 
 export async function runPlaygroundQuery() {
   const queryEl = document.getElementById("gql-query");
@@ -54,6 +54,11 @@ export async function runPlaygroundQuery() {
   setStatus("Running…");
   const startedAt = Date.now();
 
+  // Captured before the request: if the user logs out (or logs in as someone
+  // else) while it is in flight, the answer belongs to a session that is gone
+  // and must not be rendered into the next user's playground.
+  const session = currentSession();
+
   try {
     const response = await fetch(GRAPHQL_URL, {
       method: "POST",
@@ -63,6 +68,8 @@ export async function runPlaygroundQuery() {
       },
       body: JSON.stringify({ query, variables })
     });
+
+    if (!isCurrentSession(session)) return;
 
     // A rejected token ends the session here as it would anywhere else.
     if (response.status === 401 || response.status === 403) {
@@ -74,10 +81,13 @@ export async function runPlaygroundQuery() {
     try {
       result = await response.json();
     } catch {
+      if (!isCurrentSession(session)) return;
       resultEl.textContent = "The server returned a non-JSON response.";
       setStatus("Failed");
       return;
     }
+
+    if (!isCurrentSession(session)) return;
 
     // Render the whole envelope — `errors` and `data` alike — so a failed query
     // is as informative as a successful one.
@@ -87,10 +97,16 @@ export async function runPlaygroundQuery() {
     if (result.errors && result.errors.length) {
       const count = result.errors.length;
       setStatus(`${count} error${count === 1 ? "" : "s"} · ${ms} ms`);
+    } else if (!response.ok) {
+      // A JSON body with a failing status (a 500 carrying `{"message": ...}`,
+      // say) has no `errors[]` to count, but it is not a successful query
+      // either — the body is still shown, the status says so.
+      setStatus(`HTTP ${response.status} · Failed · ${ms} ms`);
     } else {
       setStatus(`OK · ${ms} ms`);
     }
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     // Only a fetch rejection is a network problem; anything else here (a DOM
     // failure, a stringify error) would be misreported as one.
     const isNetwork = err instanceof TypeError;
@@ -99,6 +115,8 @@ export async function runPlaygroundQuery() {
       : `Something went wrong: ${err.message}`;
     setStatus("Failed");
   } finally {
+    // The button is re-enabled regardless: it belongs to the page, not to the
+    // session whose response we may have just discarded.
     if (runBtn) runBtn.disabled = false;
   }
 }

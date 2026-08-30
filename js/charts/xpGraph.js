@@ -4,6 +4,7 @@ import { CHART, createSvg, drawAxes, svgEl, svgText } from "./svg.js";
 import { fetchXpTransactions } from "../data/profile.js";
 import { formatDate, formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
+import { currentSession, isCurrentSession } from "../core/session.js";
 
 // Line chart. Shares its rows with the XP total card via the data layer's
 // per-load cache, so drawing this costs no extra request.
@@ -11,8 +12,11 @@ export async function drawXpGraph() {
   const box = document.getElementById("graph-xp");
   if (!box) return;
 
+  const session = currentSession();
+
   try {
     const transactions = await fetchXpTransactions();
+    if (!isCurrentSession(session)) return;
 
     if (transactions.length < 2) {
       box.innerHTML = '<p class="graph-placeholder">Not enough XP data yet.</p>';
@@ -70,6 +74,7 @@ export async function drawXpGraph() {
     box.innerHTML = "";
     box.appendChild(svg);
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     box.innerHTML = '<p class="graph-placeholder">Could not load XP graph.</p>';
     reportSectionError("Could not load XP graph", err);
   }

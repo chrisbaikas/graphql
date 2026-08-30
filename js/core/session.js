@@ -19,3 +19,31 @@ export function endSession() {
 // A session-ending error whose message may be empty: the first concurrent
 // caller carries the text, the rest are silent so they don't overwrite it.
 export class SilentError extends Error {}
+
+/* ---------------- SESSION GENERATION ---------------- */
+//
+// Every dashboard load and every logout starts a new generation. Async loaders
+// capture the generation they began in and check it again after each await: a
+// response that arrives after a logout (or after a newer load started) belongs
+// to a session that no longer exists, so it must not be written to the DOM.
+//
+// Without this, a slow request issued by user A can resolve while user B is
+// looking at the dashboard and paint A's data over B's.
+let generation = 0;
+
+// Start a new generation and return its id. Callers hold on to the returned
+// value and pass it to isCurrentSession() after every await.
+export function newSession() {
+  generation += 1;
+  return generation;
+}
+
+// The generation a loader should capture when it starts.
+export function currentSession() {
+  return generation;
+}
+
+// True while `id` is still the live generation.
+export function isCurrentSession(id) {
+  return id === generation;
+}

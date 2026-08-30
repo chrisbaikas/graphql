@@ -48,9 +48,27 @@ export async function graphqlRequest(query, variables = {}) {
   }
 
   let result;
+  let parsed = true;
   try {
     result = await response.json();
   } catch {
+    parsed = false;
+  }
+
+  // Anything other than 401/403 that still failed — a 500, a 502, a 404 — is
+  // reported with its status. Reading such a body as a GraphQL envelope is what
+  // turns a server outage into an unrelated "Cannot read properties of
+  // undefined" further down the call chain.
+  if (!response.ok) {
+    const detail = parsed && result && typeof result.message === "string"
+      ? `: ${result.message}`
+      : "";
+    throw new Error(
+      `The GraphQL server returned an error (${response.status})${detail}.`
+    );
+  }
+
+  if (!parsed) {
     throw new Error("Received an invalid response from the GraphQL server.");
   }
 

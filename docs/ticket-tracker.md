@@ -75,7 +75,8 @@ view) so every later ticket has a place to live.
 
 ### Tasks
 - [x] Initialise git repository
-- [x] Create file structure: `index.html`, `css/style.css`, `js/app.js`
+- [x] Create file structure: `index.html`, `css/style.css`, `js/` (originally a
+  single `js/app.js`; split into ES modules under `js/` in the T21 refactor)
 - [x] Build the two-view skeleton (`#login-view`, `#dashboard-view`)
 - [x] Wire `index.html` to the CSS and JS files
 
@@ -120,7 +121,7 @@ Obtain a JWT from the `signin` endpoint using HTTP **Basic** auth
   *(same input field handles both — sent verbatim as the Basic-auth identifier)*
 
 ### Implementation notes
-- Domain centralised in `DOMAIN` (`js/app.js`); `SIGNIN_URL` derived from it.
+- Domain centralised in `DOMAIN` (now `js/config.js`); `SIGNIN_URL` derived from it.
 - `cleanToken()` strips the surrounding quotes the endpoint wraps the JWT in.
 - Distinct messages for empty fields, network failure, and rejected creds.
 - Submit button is disabled during the request (basic loading guard).
@@ -552,8 +553,12 @@ password (verified by scanning the tracked files). The deployable set is:
 ```
 index.html
 css/style.css
-js/app.js
+js/          # the whole directory — the app loads as ES modules
 ```
+
+The **entire** `js/` directory ships, not a single file: `index.html` loads
+`js/main.js` as a module and that module imports the rest of the tree at
+runtime. Omitting any of it leaves the deployed page blank.
 
 `docs/`, `AGENTS.md` and `Makefile` are harmless to ship but irrelevant to the
 audit.

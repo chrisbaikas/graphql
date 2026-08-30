@@ -5,6 +5,7 @@ import { PROJECTS_VISIBLE } from "../config.js";
 import { fetchProjectXp } from "../data/profile.js";
 import { formatXp, truncate } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
+import { currentSession, isCurrentSession } from "../core/session.js";
 
 // A third chart type: the other two run vertically, and project names are long,
 // so bars grow left-to-right with the label in the gutter beside each one.
@@ -24,8 +25,14 @@ export async function drawProjectsGraph() {
   const box = document.getElementById("graph-projects");
   if (!box) return;
 
+  const session = currentSession();
+
   try {
-    allProjects = await fetchProjectXp();
+    const projects = await fetchProjectXp();
+    // Only adopt the rows if they still belong to the live session — assigning
+    // first would leave a logged-out user's projects in module state.
+    if (!isCurrentSession(session)) return;
+    allProjects = projects;
 
     if (!allProjects.length) {
       box.innerHTML = '<p class="graph-placeholder">No project XP yet.</p>';
@@ -35,6 +42,7 @@ export async function drawProjectsGraph() {
 
     renderProjectsGraph(false);
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     box.innerHTML = '<p class="graph-placeholder">Could not load project graph.</p>';
     hideToggle();
     reportSectionError("Could not load project graph", err);

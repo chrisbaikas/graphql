@@ -10,13 +10,17 @@ import { SKILLS_VISIBLE } from "../config.js";
 import { fetchSkills } from "../data/profile.js";
 import { applyOverflow, resetOverflow } from "../ui/collapsible.js";
 import { reportSectionError } from "../ui/errors.js";
+import { currentSession, isCurrentSession } from "../core/session.js";
 
 export async function loadSkillsSection() {
   const listEl = document.getElementById("skills-list");
   if (!listEl) return;
 
+  const session = currentSession();
+
   try {
     const skills = await fetchSkills();
+    if (!isCurrentSession(session)) return;
 
     listEl.innerHTML = "";
     resetOverflow("skills-list", "skills-toggle");
@@ -34,6 +38,7 @@ export async function loadSkillsSection() {
 
     applyOverflow("skills-list", "skills-toggle", ".skill", SKILLS_VISIBLE);
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     listEl.innerHTML = "<li>—</li>";
     resetOverflow("skills-list", "skills-toggle");
     reportSectionError("Could not load skills", err);

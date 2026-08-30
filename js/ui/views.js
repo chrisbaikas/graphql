@@ -8,6 +8,7 @@ import { resetProjectsCache } from "../charts/projectsGraph.js";
 import { resetAllOverflow } from "./collapsible.js";
 import { resetPlayground } from "../playground.js";
 import { clearDashboardError } from "./errors.js";
+import { newSession } from "../core/session.js";
 
 import { loadUserSection } from "../sections/user.js";
 import { loadXpSection } from "../sections/xp.js";
@@ -38,6 +39,9 @@ export function showDashboard() {
 // share rows through the data layer's cache, so a concurrent start is what lets
 // the shared fetches collapse into one request each.
 export function loadProfile() {
+  // A new generation invalidates anything still in flight from a previous load
+  // or a previous user, so a late response can no longer paint this dashboard.
+  newSession();
   clearDashboardError();
   clearProfileCache(); // a reload must re-fetch, not replay the last load
   showLoading();
@@ -75,6 +79,9 @@ export function showLoading() {
 // are what actually drop the previous user's data, and skipping them because a
 // container element is missing would leave that data in memory.
 export function resetProfile() {
+  // Same generation bump on the way out: requests started by the user who is
+  // logging out are now stale and will discard their own results.
+  newSession();
   clearProfileCache();
   resetProjectsCache();
   resetPlayground();
