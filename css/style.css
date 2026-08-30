@@ -198,6 +198,46 @@ button:disabled {
   margin: 4px 0;
 }
 
+/* ---- Skills (Ticket 14) ---- */
+.skills {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* name | bar | value — the bar takes the remaining width so every row's
+   percentage label lines up in the same column. */
+.skill {
+  display: grid;
+  grid-template-columns: minmax(80px, 25%) 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.skill-name {
+  color: #94a3b8;
+}
+
+.skill-bar {
+  height: 8px;
+  background: #1e293b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.skill-fill {
+  display: block;
+  height: 100%;
+  background: #38bdf8;
+  border-radius: 4px;
+}
+
+.skill-value {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Statistics / SVG graphs ---- */
 .graphs {
   display: grid;

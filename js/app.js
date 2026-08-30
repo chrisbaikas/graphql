@@ -43,6 +43,7 @@ function loadProfile() {
   loadXpSection();
   loadGradesSection();
   loadRecentSection();
+  loadSkillsSection();
   loadStatsSection();
 }
 
@@ -55,6 +56,8 @@ function showLoading() {
   }
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>Loading…</li>";
+  const skills = document.getElementById("skills-list");
+  if (skills) skills.innerHTML = "<li>Loading…</li>";
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
   }
@@ -198,6 +201,89 @@ async function loadRecentSection() {
     if (listEl) listEl.innerHTML = "<li>—</li>";
     showError(`Could not load recent projects: ${err.message}`);
   }
+}
+
+// Ticket 14 (bonus) — Skills breakdown: extra information beyond the three
+// mandatory sections. The platform records skills as transactions whose `type`
+// is prefixed `skill_` (e.g. `skill_go`, `skill_prog`), where `amount` is a
+// percentage rather than XP. A skill is re-recorded as it improves, so the
+// CURRENT level is the highest amount seen for that type — not the sum.
+//
+// Defensive by design: `skill_%` is matched with `_like`, so if this platform
+// exposes no skill rows at all the card shows an empty state instead of an
+// error. Uses a "with arguments" query.
+async function loadSkillsSection() {
+  const listEl = document.getElementById("skills-list");
+  if (!listEl) return;
+
+  try {
+    const data = await graphqlRequest(`{
+      transaction(
+        where: { type: { _like: "skill_%" } }
+        order_by: { amount: desc }
+      ) {
+        type
+        amount
+      }
+    }`);
+    const transactions = data.transaction || [];
+
+    // Highest amount per skill type — ordered desc above, so the first row for
+    // a given type is already its peak.
+    const best = new Map();
+    for (const t of transactions) {
+      if (!best.has(t.type)) best.set(t.type, t.amount || 0);
+    }
+
+    const skills = [...best.entries()]
+      .map(([type, amount]) => ({ name: formatSkillName(type), amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6);
+
+    listEl.innerHTML = "";
+
+    if (!skills.length) {
+      listEl.innerHTML = "<li>No skill data available.</li>";
+      return;
+    }
+
+    // Percentages are capped at 100 for the bar width only — an out-of-range
+    // value would otherwise overflow the card.
+    for (const skill of skills) {
+      const pct = Math.max(0, Math.min(100, skill.amount));
+      const li = document.createElement("li");
+      li.className = "skill";
+
+      const name = document.createElement("span");
+      name.className = "skill-name";
+      name.textContent = skill.name;
+
+      const bar = document.createElement("span");
+      bar.className = "skill-bar";
+      const fill = document.createElement("span");
+      fill.className = "skill-fill";
+      fill.style.width = `${pct}%`;
+      bar.appendChild(fill);
+
+      const value = document.createElement("span");
+      value.className = "skill-value";
+      value.textContent = `${skill.amount}%`;
+
+      li.append(name, bar, value);
+      listEl.appendChild(li);
+    }
+  } catch (err) {
+    listEl.innerHTML = "<li>—</li>";
+    showError(`Could not load skills: ${err.message}`);
+  }
+}
+
+// "skill_go" -> "Go", "skill_web-dev" -> "Web dev". Turns the raw transaction
+// type into something readable in the UI.
+function formatSkillName(type) {
+  const raw = String(type).replace(/^skill_/, "").replace(/[-_]+/g, " ").trim();
+  if (!raw) return type;
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 /* ---------------- STATISTICS (SVG) ---------------- */
@@ -527,6 +613,8 @@ function resetProfile() {
   }
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>—</li>";
+  const skills = document.getElementById("skills-list");
+  if (skills) skills.innerHTML = "<li>—</li>";
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }

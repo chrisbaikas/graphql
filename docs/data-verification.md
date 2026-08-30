@@ -108,6 +108,33 @@ Expected values:
 
 ---
 
+## Check 4b — Skills breakdown (T14, bonus)
+
+**UI:** "Skills" card → up to 6 rows of `Name` + bar + `NN%`.
+
+```graphql
+{
+  transaction(
+    where: { type: { _like: "skill_%" } }
+    order_by: { amount: desc }
+  ) {
+    type
+    amount
+  }
+}
+```
+
+Expected: for each distinct `type`, its **highest** `amount` (a skill is
+re-recorded as it improves, so the max is the current level — not the sum). The
+card shows the top 6 by that value.
+
+- [ ] The listed skills are the 6 highest-scoring `skill_*` types
+- [ ] Each percentage == the max `amount` for that type
+- [ ] Bar widths look proportional to their percentages
+- [ ] Names render readably (`skill_web-dev` → `Web dev`)
+
+---
+
 ## Check 5 — Graph 1: cumulative XP over time (T10)
 
 **UI:** Statistics → left graph (line chart). Click it to zoom for readable labels.
