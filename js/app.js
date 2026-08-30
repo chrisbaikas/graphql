@@ -12,6 +12,21 @@ const logoutBtn = document.getElementById("logout-btn");
 
 const errorText = document.getElementById("error");
 
+// How many rows each collapsible list shows before offering "Show more".
+// Declared up here because the routing below runs immediately on load and
+// reaches resetAllOverflow() — a `const` further down would still be in its
+// temporal dead zone at that point.
+const SKILLS_VISIBLE = 6;
+const RECENT_VISIBLE = 5;
+const PROJECTS_VISIBLE = 8;
+
+// Every CSS-collapsible list on the dashboard: [listId, toggleId]. The project
+// graph isn't here — an SVG is redrawn rather than collapsed with a class.
+const COLLAPSIBLE_LISTS = [
+  ["skills-list", "skills-toggle"],
+  ["recent-list", "recent-toggle"],
+];
+
 // Route on load: a valid, unexpired token keeps the user on the dashboard;
 // a missing or expired/invalid token sends them to login (auto-logout).
 const storedToken = localStorage.getItem("token");
@@ -57,12 +72,8 @@ function showLoading() {
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>Loading…</li>";
   const skills = document.getElementById("skills-list");
-  if (skills) {
-    skills.innerHTML = "<li>Loading…</li>";
-    skills.classList.remove("expanded");
-  }
-  const skillsToggle = document.getElementById("skills-toggle");
-  if (skillsToggle) skillsToggle.hidden = true;
+  if (skills) skills.innerHTML = "<li>Loading…</li>";
+  resetAllOverflow();
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
   }
@@ -176,7 +187,7 @@ async function loadRecentSection() {
       result(
         where: { object: { type: { _eq: "project" } } }
         order_by: { createdAt: desc }
-        limit: 5
+        limit: 30
       ) {
         grade
         object {
@@ -189,6 +200,7 @@ async function loadRecentSection() {
 
     if (!listEl) return;
     listEl.innerHTML = "";
+    resetOverflow("recent-list", "recent-toggle");
 
     if (!results.length) {
       listEl.innerHTML = "<li>No projects yet.</li>";
@@ -199,11 +211,15 @@ async function loadRecentSection() {
       const name = (r.object && r.object.name) || "Unknown";
       const status = r.grade >= 1 ? "pass" : "fail";
       const li = document.createElement("li");
+      li.className = "recent-item";
       li.textContent = `${name} — ${status}`;
       listEl.appendChild(li);
     }
+
+    applyOverflow("recent-list", "recent-toggle", ".recent-item", RECENT_VISIBLE);
   } catch (err) {
     if (listEl) listEl.innerHTML = "<li>—</li>";
+    resetOverflow("recent-list", "recent-toggle");
     showError(`Could not load recent projects: ${err.message}`);
   }
 }
@@ -245,23 +261,21 @@ async function loadSkillsSection() {
       .sort((a, b) => b.amount - a.amount);
 
     listEl.innerHTML = "";
-    listEl.classList.remove("expanded");
-    const toggle = document.getElementById("skills-toggle");
-    if (toggle) toggle.hidden = true;
+    resetOverflow("skills-list", "skills-toggle");
 
     if (!skills.length) {
       listEl.innerHTML = "<li>No skill data available.</li>";
       return;
     }
 
-    // Every skill is rendered; the ones past SKILLS_VISIBLE are marked `extra`
-    // and hidden by CSS until "Show more" reveals them.
-    skills.forEach((skill, i) => {
+    // Every skill is rendered; applyOverflow() below hides the ones past
+    // SKILLS_VISIBLE behind the toggle.
+    skills.forEach((skill) => {
       // Percentages are capped at 100 for the bar width only — an out-of-range
       // value would otherwise overflow the card.
       const pct = Math.max(0, Math.min(100, skill.amount));
       const li = document.createElement("li");
-      li.className = i < SKILLS_VISIBLE ? "skill" : "skill extra";
+      li.className = "skill";
 
       const name = document.createElement("span");
       name.className = "skill-name";
@@ -282,27 +296,26 @@ async function loadSkillsSection() {
       listEl.appendChild(li);
     });
 
-    // The toggle only earns its place when something is actually hidden.
-    if (toggle && skills.length > SKILLS_VISIBLE) {
-      setSkillsExpanded(false, skills.length - SKILLS_VISIBLE);
-      toggle.hidden = false;
-    }
+    applyOverflow("skills-list", "skills-toggle", ".skill", SKILLS_VISIBLE);
   } catch (err) {
     listEl.innerHTML = "<li>—</li>";
-    const toggle = document.getElementById("skills-toggle");
-    if (toggle) toggle.hidden = true;
+    resetOverflow("skills-list", "skills-toggle");
     showError(`Could not load skills: ${err.message}`);
   }
 }
 
-// How many skills are shown before "Show more" is offered.
-const SKILLS_VISIBLE = 6;
+/* ---------------- SHOW MORE / SHOW LESS ---------------- */
 
-// Show or hide the overflow skills and relabel the button. `hiddenCount` is
-// passed on the first call so the label can name how many are collapsed.
-function setSkillsExpanded(expanded, hiddenCount) {
-  const listEl = document.getElementById("skills-list");
-  const toggle = document.getElementById("skills-toggle");
+// Generic collapse behaviour shared by every "top N + Show more" list.
+// A container is any element holding row children; rows past `visible` get the
+// `extra` class and are hidden by CSS until the toggle expands them.
+//
+// `listId` and `toggleId` are looked up fresh each call rather than captured,
+// so a list can be re-rendered (on reload, or after logout) without leaving a
+// stale node reference behind.
+function setExpanded(listId, toggleId, expanded, hiddenCount) {
+  const listEl = document.getElementById(listId);
+  const toggle = document.getElementById(toggleId);
   if (!listEl || !toggle) return;
 
   listEl.classList.toggle("expanded", expanded);
@@ -313,15 +326,56 @@ function setSkillsExpanded(expanded, hiddenCount) {
   toggle.setAttribute("aria-expanded", String(expanded));
 }
 
-// Wire the Show more / Show less button once on load.
-function setupSkillsToggle() {
-  const toggle = document.getElementById("skills-toggle");
-  const listEl = document.getElementById("skills-list");
-  if (!toggle || !listEl) return;
+// Mark rows past `visible` as overflow and show the toggle only when some are
+// actually hidden. Call after rendering a list's rows.
+function applyOverflow(listId, toggleId, rowSelector, visible) {
+  const listEl = document.getElementById(listId);
+  const toggle = document.getElementById(toggleId);
+  if (!listEl) return;
 
-  toggle.addEventListener("click", () => {
-    setSkillsExpanded(!listEl.classList.contains("expanded"));
-  });
+  const rows = [...listEl.querySelectorAll(rowSelector)];
+  rows.forEach((row, i) => row.classList.toggle("extra", i >= visible));
+
+  if (!toggle) return;
+  const hidden = rows.length - visible;
+  if (hidden > 0) {
+    setExpanded(listId, toggleId, false, hidden);
+    toggle.hidden = false;
+  } else {
+    toggle.hidden = true;
+  }
+}
+
+// Reset a collapsible list to its collapsed state and hide its toggle — used
+// by the loading and logout paths so a list never returns mid-expanded.
+function resetOverflow(listId, toggleId) {
+  const listEl = document.getElementById(listId);
+  const toggle = document.getElementById(toggleId);
+  if (listEl) listEl.classList.remove("expanded");
+  if (toggle) toggle.hidden = true;
+}
+
+// Collapse every list and hide the project graph's toggle too — the graph is
+// redrawn rather than CSS-collapsed, so it isn't in COLLAPSIBLE_LISTS.
+function resetAllOverflow() {
+  for (const [listId, toggleId] of COLLAPSIBLE_LISTS) {
+    resetOverflow(listId, toggleId);
+  }
+  const projectsToggle = document.getElementById("projects-toggle");
+  if (projectsToggle) projectsToggle.hidden = true;
+}
+
+// Wire each list's Show more / Show less button once on load.
+function setupToggles() {
+  for (const [listId, toggleId] of COLLAPSIBLE_LISTS) {
+    const toggle = document.getElementById(toggleId);
+    const listEl = document.getElementById(listId);
+    if (!toggle || !listEl) continue;
+
+    toggle.addEventListener("click", () => {
+      setExpanded(listId, toggleId, !listEl.classList.contains("expanded"));
+    });
+  }
 }
 
 // "skill_go" -> "Go", "skill_web-dev" -> "Web dev". Turns the raw transaction
@@ -601,19 +655,55 @@ async function drawProjectsGraph() {
       totals.set(name, (totals.get(name) || 0) + (t.amount || 0));
     }
 
-    const projects = [...totals.entries()]
+    allProjects = [...totals.entries()]
       .map(([name, amount]) => ({ name, amount }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, PROJECTS_SHOWN);
+      .sort((a, b) => b.amount - a.amount);
 
-    if (!projects.length) {
+    if (!allProjects.length) {
       box.innerHTML = '<p class="graph-placeholder">No project XP yet.</p>';
+      const toggle = document.getElementById("projects-toggle");
+      if (toggle) toggle.hidden = true;
       return;
     }
 
+    renderProjectsGraph(false);
+  } catch (err) {
+    box.innerHTML = '<p class="graph-placeholder">Could not load project graph.</p>';
+    const toggle = document.getElementById("projects-toggle");
+    if (toggle) toggle.hidden = true;
+    showError(`Could not load project graph: ${err.message}`);
+  }
+}
+
+// Every project with XP, kept so the graph can be redrawn at a different length
+// when the user expands it. An SVG can't be collapsed with a CSS class the way
+// a list can, so expanding redraws it rather than hiding rows.
+let allProjects = [];
+
+// Draw the XP-by-project bars: the top PROJECTS_VISIBLE, or all of them when
+// `expanded`. Keeps the toggle's label and state in sync.
+function renderProjectsGraph(expanded) {
+  const box = document.getElementById("graph-projects");
+  const toggle = document.getElementById("projects-toggle");
+  if (!box) return;
+
+  const projects = expanded
+    ? allProjects
+    : allProjects.slice(0, PROJECTS_VISIBLE);
+
+  if (toggle) {
+    const hidden = allProjects.length - PROJECTS_VISIBLE;
+    toggle.hidden = hidden <= 0;
+    if (hidden > 0) {
+      toggle.textContent = expanded ? "Show less" : `Show ${hidden} more`;
+      toggle.setAttribute("aria-expanded", String(expanded));
+    }
+  }
+
+  try {
     // Local geometry: a wider left gutter than CHART.pad gives, because project
     // names sit there. Height grows with the row count so bars keep a readable
-    // thickness whether there are three projects or eight.
+    // thickness at any length — collapsed to a few rows or expanded to all.
     const padLeft = 132;
     // The longest bar spans the full plot width, so the gutter must fit its
     // value label ("200.00 kB" ~ 56px at font-size 11) plus the 6px gap.
@@ -662,13 +752,22 @@ async function drawProjectsGraph() {
     box.innerHTML = "";
     box.appendChild(svg);
   } catch (err) {
-    box.innerHTML = '<p class="graph-placeholder">Could not load project graph.</p>';
-    showError(`Could not load project graph: ${err.message}`);
+    box.innerHTML = '<p class="graph-placeholder">Could not draw project graph.</p>';
+    showError(`Could not draw project graph: ${err.message}`);
   }
 }
 
-// How many projects the XP-by-project graph shows.
-const PROJECTS_SHOWN = 8;
+// Wire the XP-by-project graph's Show more / Show less button. Clicking the
+// button must not also open the zoom modal, so the click is stopped here
+// (the modal listens for clicks anywhere inside .graph-box).
+function setupProjectsToggle() {
+  const toggle = document.getElementById("projects-toggle");
+  if (!toggle) return;
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    renderProjectsGraph(toggle.getAttribute("aria-expanded") !== "true");
+  });
+}
 
 // SVG has no text-overflow, so long project names are shortened by hand.
 function truncate(text, max) {
@@ -771,12 +870,8 @@ function resetProfile() {
   const recent = document.getElementById("recent-list");
   if (recent) recent.innerHTML = "<li>—</li>";
   const skills = document.getElementById("skills-list");
-  if (skills) {
-    skills.innerHTML = "<li>—</li>";
-    skills.classList.remove("expanded");
-  }
-  const skillsToggle = document.getElementById("skills-toggle");
-  if (skillsToggle) skillsToggle.hidden = true;
+  if (skills) skills.innerHTML = "<li>—</li>";
+  resetAllOverflow();
   for (const box of profile.querySelectorAll(".graph-box")) {
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }
@@ -898,4 +993,5 @@ function setupSectionControls() {
 // Wire up the graph zoom modal once (adds document-level listeners).
 setupGraphModal();
 setupSectionControls();
-setupSkillsToggle();
+setupToggles();
+setupProjectsToggle();

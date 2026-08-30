@@ -341,6 +341,10 @@ The nested query was added as a real feature (Recent projects) rather than a
 throwaway, so the nesting is visible in the UI as well as the network tab. All
 three forms fire on dashboard load via `loadProfile()`.
 
+The query's `limit` was later raised from 5 to 30 so the card can offer a
+**Show more** toggle over the full history (T15); it still displays
+`RECENT_VISIBLE` (5) until expanded.
+
 ---
 
 ## Ticket 9 — Section 4: Statistics (SVG container)
@@ -563,9 +567,12 @@ Add genuinely useful extra data beyond the three required sections.
   the Statistics section (T9–T11), and keeping this card visually distinct
   avoids muddying the "fourth section dedicated to graphs" requirement.
 - Shows the top `SKILLS_VISIBLE` (6); any beyond that are rendered but hidden
-  behind a **Show N more / Show less** toggle (`setupSkillsToggle`). The button
-  stays hidden when nothing overflows, and the list re-collapses on reload or
-  logout so it never reopens in a stale expanded state.
+  behind a **Show N more / Show less** toggle. The button stays hidden when
+  nothing overflows, and the list re-collapses on reload or logout so it never
+  reopens in a stale expanded state.
+- The toggle machinery is generic (`applyOverflow` / `setExpanded` /
+  `resetOverflow` in the SHOW MORE section), shared with Recent projects and
+  the XP-by-project graph rather than duplicated per section.
 - Bar widths are clamped to 0–100% so an unexpected value can't overflow the
   card; an empty result renders "No skill data available." instead of an error.
 
@@ -630,6 +637,11 @@ Add a third SVG graph (e.g. XP by project, piscine attempts per exercise).
   cell; horizontal bars read better wide.
 - Inherits click-to-zoom, loading and reset states automatically, since all
   three are wired by `.graph-box` selectors.
+- **Show more / Show less**: shows the top `PROJECTS_VISIBLE` (8) with a toggle
+  revealing the rest. An SVG can't be collapsed with a CSS class the way a list
+  can, so `renderProjectsGraph(expanded)` redraws it at the new length from the
+  cached `allProjects`; the height grows to match. The toggle's click is
+  stopped from bubbling so it doesn't also open the zoom modal.
 
 ### Manual verification (needs live session)
 - [ ] Graph lists real projects with plausible XP values
