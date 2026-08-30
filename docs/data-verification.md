@@ -128,12 +128,13 @@ Expected: for each distinct `type`, its **highest** `amount` (a skill is
 re-recorded as it improves, so the max is the current level — not the sum). The
 card shows the top 6 by that value.
 
-- [ ] The listed skills are the highest-scoring `skill_*` types, descending
-- [ ] Each percentage == the max `amount` for that type
-- [ ] Bar widths look proportional to their percentages
-- [ ] Names render readably (`skill_web-dev` → `Web dev`)
-- [ ] If more than 6 skills exist, "Show N more" reveals exactly the remaining
-      ones and "Show less" collapses them again (no toggle when ≤ 6)
+- [x] The listed skills are the highest-scoring `skill_*` types, descending —
+      19 skills, 75% down to 10%, correctly ordered with ties preserved
+- [ ] Each percentage == the max `amount` for that type *(needs GraphiQL)*
+- [x] Bar widths look proportional to their percentages
+- [x] Names render readably — `skill_back-end` → `Back end`,
+      `skill_sys-admin` → `Sys admin`
+- [x] "Show 13 more" / "Show less" reveals and re-collapses the overflow
 
 ---
 

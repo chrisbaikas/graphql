@@ -569,10 +569,12 @@ Add genuinely useful extra data beyond the three required sections.
 - Bar widths are clamped to 0–100% so an unexpected value can't overflow the
   card; an empty result renders "No skill data available." instead of an error.
 
-### Manual verification (needs live session)
-- [ ] Skills card lists real skills with plausible percentages
+### Manual verification
+- [x] Skills card lists real skills with plausible percentages — verified
+      2026-08-30: 19 skills from Prog 75% down to Sys admin 10%, correctly
+      ordered, names formatted, "Show 13 more" toggle working
 - [ ] Values match `transaction(where: { type: { _like: "skill_%" } })` in
-      GraphiQL, taking the max `amount` per type
+      GraphiQL, taking the max `amount` per type *(needs GraphiQL)*
 
 ---
 
