@@ -9,20 +9,29 @@ endpoint, and displays it as profile sections plus SVG statistics graphs.
 
 ## Tech
 
-Plain static site — HTML + CSS + vanilla JavaScript. No build step, no
-dependencies, no framework.
+Plain static site — HTML + CSS + vanilla JavaScript, organised as ES modules
+that the browser loads natively. No build step, no dependencies, no framework.
 
 ```
 index.html        # login + dashboard views
 css/style.css     # styles
-js/app.js         # auth, GraphQL queries, rendering
+js/
+  main.js         # entry point: wiring + routing
+  config.js       # domain, derived URLs, display constants
+  core/           # auth, GraphQL transport, JWT helpers
+  data/           # query strings + the fetch layer (no DOM)
+  sections/       # one module per dashboard card (no fetching)
+  charts/         # hand-written SVG primitives + the three graphs
+  ui/             # views, errors, collapsible lists, modal, formatting
+  playground.js   # in-app GraphiQL
 docs/             # project instructions, audit criteria, ticket tracker
 ```
 
 ## Run locally
 
-The app uses `fetch` against the platform API, so it must be served over HTTP
-(opening `index.html` with `file://` breaks CORS). Use any static server:
+The app uses `fetch` against the platform API and loads as ES modules, so it
+must be served over HTTP (opening `index.html` with `file://` breaks both).
+Use any static server:
 
 ```bash
 # Recommended — uses the Makefile (Python, no dependencies)

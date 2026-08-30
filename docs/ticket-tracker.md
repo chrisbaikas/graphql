@@ -890,3 +890,60 @@ scale via `viewBox`.
 - [ ] Tab to a graph, press Enter — it zooms; Escape closes and focus returns
 - [ ] Break a query in the playground — the error appears in the banner
 - [ ] Resize to ~360px — nothing overflows horizontally
+
+---
+
+## Refactor — modular architecture (2026-08-31)
+
+`js/app.js` had grown to 1265 lines holding seven unrelated responsibilities.
+Split into 25 ES modules loaded natively by the browser, so the "no build step,
+no dependencies" constraint is unchanged — `index.html` now loads
+`<script type="module" src="./js/main.js">`.
+
+### The organising seam
+
+Fetching and rendering were entangled: every `loadXSection()` built a query,
+awaited it, *and* wrote DOM. They are now separate layers — `data/profile.js`
+returns plain objects and touches no DOM; `sections/` and `charts/` render
+those objects and never fetch. See AGENTS.md § Architecture rules.
+
+### Defects found and fixed
+
+- **Two duplicate GraphQL requests per dashboard load.** The XP card and the
+  XP-over-time graph each fetched the same `type: "xp"` transactions, and the
+  audit card and audit graph each fetched the same `up`/`down` rows. The fetch
+  layer now caches per load, so shared rows cost one request between them:
+  **8 requests down to 6**, and the card and its graph can no longer disagree.
+- **Logout could skip clearing cached data.** `resetProfile()` returned early
+  if `#profile` was missing, *before* reaching `resetPlayground()`,
+  `resetProjectsCache()` and `clearDashboardError()` — leaving one user's
+  project data and typed query available to the next. Those calls now run
+  before any DOM lookup can bail out.
+- **Unhandled promise rejection in the new cache** (introduced during this
+  refactor, caught by the harness below). Caching `fn().catch(...)` — the
+  derived promise — left a rejection unhandled in the window between eviction
+  and the next caller, even though every caller had a try/catch. The original
+  promise is cached now, with eviction attached as a separate settled handler.
+- **Two `document` keydown listeners** in the graph modal, with an implicit
+  ordering dependency between the open and close branches. Merged into one
+  handler that branches on `modal.hidden`.
+
+### Verification
+
+No automated tests exist, so the app was executed against a stubbed DOM in Node
+(the same technique the T17 audit used) to check behaviour, not just syntax:
+
+- all 25 modules parse as modules; every `import` resolves to a real export
+- full load renders all six values, both lists and all three SVGs — 6 requests,
+  **no duplicates**
+- logout clears token, values, playground and caches; re-login re-fetches
+- expired token on load → login view, **zero** requests fired
+- one failing section leaves the others rendered and shows the banner
+- a mid-session 401 logs out with **one** message, not six
+- Enter opens the zoom modal and Escape closes it, through the single handler
+- served over HTTP, all 25 modules return 200 `text/javascript`
+
+### Manual verification
+- [ ] `make run`, log in — every card populates and all three graphs draw
+- [ ] DevTools Network: 6 GraphQL POSTs on load, none repeated
+- [ ] Log out, log back in — everything repopulates
