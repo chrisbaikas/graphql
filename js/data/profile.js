@@ -94,6 +94,24 @@ export function fetchXpTransactions() {
   });
 }
 
+// The row's display name. The linked object carries the real name the platform
+// shows ("Piscine Rust"), so prefer it; the path's last segment is only a
+// fallback for rows whose object didn't come back.
+//
+// The fallback is a fallback and not the primary source because a slug is not
+// the name: `ascii-art-web-export-file` is one object whose path ends
+// `.../export-file`, and taking the last segment renders it as "Export file",
+// losing which project it belongs to.
+function labelForRow(row) {
+  const name = row.object && row.object.name;
+  if (name) return name;
+
+  const segments = String(row.path || "").split("/").filter(Boolean);
+  const slug = segments[segments.length - 1] || "Unknown";
+  const words = slug.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 // The xp rows as the XP card lists them: [{ name, amount, createdAt }, ...],
 // newest first — the same rows, in the same order, as the platform's XP board.
 export async function fetchXpBreakdown() {
