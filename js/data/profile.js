@@ -14,7 +14,7 @@
 // clearProfileCache() drops everything, so one user's data can never be served
 // to the next — it is called by logout() and again at the start of each load.
 
-import { CURSUS_ROOT, CURSUS_GROUP_SEGMENTS } from "../config.js";
+import { CURSUS_ROOT, PISCINE_SEGMENT } from "../config.js";
 import { graphqlRequest } from "../core/graphql.js";
 import * as QUERIES from "./queries.js";
 import { formatSkillName } from "../ui/format.js";
@@ -23,17 +23,19 @@ let cache = {};
 
 // Does this path name a row the platform's own XP board counts?
 //
-// The queries already restrict to the cursus root, but that is a prefix and the
-// cursus contains Piscines, which are scored twice over: once as a rolled-up
-// total on the Piscine itself ("/athens/div-01/piscine-rust" -> 390 kB) and
-// again on every exercise inside it. Counting both double-counts the Piscine.
-// The platform keeps the roll-up, so we keep the roll-up.
+// Everything under the cursus root counts, EXCEPT rows nested inside a Piscine.
+// A Piscine is scored twice in the raw data — once as a roll-up on the Piscine
+// object itself, and again on every exercise inside it — and the board keeps
+// only the roll-up. Relative to CURSUS_ROOT:
 //
-// The rule is therefore about depth, not prefix. Relative to CURSUS_ROOT:
+//   ascii-art                keep  (a project)
+//   checkpoint/safe-sum      keep  (an exam exercise; folder name varies)
+//   piscine-rust             keep  (the roll-up the board shows)
+//   piscine-rust/q-01/ex-3   drop  (already inside that roll-up)
 //
-//   ascii-art               1 segment   -> keep (a project, or a Piscine total)
-//   checkpoint/safe-sum     2, grouped  -> keep (exam exercises live in folders)
-//   piscine-rust/q-01/ex-3  3           -> drop (inside a Piscine roll-up)
+// Note this counts by what a row IS, not by how deep it sits: exam folders are
+// named inconsistently across years, so a depth or folder allow-list quietly
+// loses whichever exams it fails to predict.
 //
 // Anything outside the cursus root is dropped outright, so a caller can hand
 // this every row it has without pre-filtering.
@@ -42,22 +44,12 @@ export function isCursusPath(path) {
   if (!path.startsWith(`${CURSUS_ROOT}/`)) return false;
 
   const segments = path.slice(CURSUS_ROOT.length + 1).split("/").filter(Boolean);
-  if (segments.length === 1) return true;
-  // A grouping folder is scaffolding, not an earnable object, so its direct
-  // children are the real rows — but only one level down.
-  if (segments.length === 2 && CURSUS_GROUP_SEGMENTS.includes(segments[0])) {
-    return true;
-  }
-  return false;
-}
+  if (!segments.length) return false;
 
-// "/athens/div-01/piscine-rust" -> "Piscine rust". The last path segment is the
-// object's slug, which is what the platform labels the row with.
-function labelFromPath(path) {
-  const segments = String(path || "").split("/").filter(Boolean);
-  const slug = segments[segments.length - 1] || "Unknown";
-  const words = slug.replace(/[-_]+/g, " ").trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  // A Piscine anywhere but the final segment means this row sits inside the
+  // Piscine, so the roll-up already covers it. The Piscine row itself ends
+  // there and is kept.
+  return !segments.slice(0, -1).some((segment) => PISCINE_SEGMENT.test(segment));
 }
 
 export function clearProfileCache() {
@@ -103,13 +95,12 @@ export function fetchXpTransactions() {
 }
 
 // The xp rows as the XP card lists them: [{ name, amount, createdAt }, ...],
-// newest first. The name comes from the path's last segment — the same label
-// the platform's own XP board shows ("piscine-rust" -> "Piscine Rust").
+// newest first — the same rows, in the same order, as the platform's XP board.
 export async function fetchXpBreakdown() {
   const transactions = await fetchXpTransactions();
   return transactions
     .map((t) => ({
-      name: labelFromPath(t.path),
+      name: labelForRow(t),
       amount: t.amount || 0,
       createdAt: t.createdAt
     }))
@@ -120,6 +111,18 @@ export async function fetchXpBreakdown() {
 export async function fetchTotalXp() {
   const transactions = await fetchXpTransactions();
   return transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+}
+
+// The current cursus level — the highest `level` transaction the platform
+// counts. Levels are re-issued on each level-up rather than accumulated, so the
+// maximum is the current level, never the sum.
+export function fetchLevel() {
+  return once("level", async () => {
+    const data = await graphqlRequest(QUERIES.LEVEL);
+    const rows = (data.transaction || []).filter((t) => isCursusPath(t.path));
+    if (!rows.length) return null;
+    return rows.reduce((max, t) => Math.max(max, t.amount || 0), 0);
+  });
 }
 
 // Audit XP totals: given to others (`done` = "up") and received from others

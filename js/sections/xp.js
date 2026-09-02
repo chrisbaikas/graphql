@@ -1,14 +1,21 @@
-// Section 2: total XP, plus the transactions it is summed from.
-// Summed from the xp-type transactions the XP graph also uses — one request.
+// Section 2: total XP, the current level, and the transactions the total is
+// summed from. The XP rows come from the same request the XP graph uses; the
+// level is a separate query (its own transaction type).
 
 import { XP_VISIBLE } from "../config.js";
-import { fetchXpBreakdown } from "../data/profile.js";
+import { fetchLevel, fetchXpBreakdown } from "../data/profile.js";
 import { applyOverflow, resetOverflow } from "../ui/collapsible.js";
 import { formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
 import { currentSession, isCurrentSession } from "../core/session.js";
 
 export async function loadXpSection() {
+  // The level is its own query, so it is loaded on its own errand: a failure
+  // there should leave the XP total and its list standing rather than blanking
+  // the whole card. loadLevel() handles its own errors and never rejects, so
+  // starting it without awaiting leaves nothing unhandled behind.
+  loadLevel();
+
   const totalEl = document.getElementById("xp-total");
   const countEl = document.getElementById("xp-count");
   const listEl = document.getElementById("xp-list");
@@ -52,5 +59,24 @@ export async function loadXpSection() {
       resetOverflow("xp-list", "xp-toggle");
     }
     reportSectionError("Could not load XP", err);
+  }
+}
+
+async function loadLevel() {
+  const levelEl = document.getElementById("xp-level");
+  if (!levelEl) return;
+
+  const session = currentSession();
+
+  try {
+    const level = await fetchLevel();
+    if (!isCurrentSession(session)) return;
+    // A user with no level transactions yet keeps the placeholder rather than
+    // being shown a misleading "0".
+    levelEl.textContent = level === null ? "—" : String(level);
+  } catch (err) {
+    if (!isCurrentSession(session)) return;
+    levelEl.textContent = "—";
+    reportSectionError("Could not load level", err);
   }
 }

@@ -31,6 +31,9 @@ export const XP_TRANSACTIONS = `{
     amount
     createdAt
     path
+    object {
+      name
+    }
   }
 }`;
 
@@ -55,6 +58,28 @@ export const RECENT_PROJECTS = `{
       name
       type
     }
+  }
+}`;
+
+// WITH ARGUMENTS. Level is recorded as its own transaction type, re-issued each
+// time the user levels up — so the CURRENT level is the highest amount, not a
+// sum. Scoped to the cursus root like the XP queries: a Piscine runs its own
+// level track, and those rows would otherwise outrank the cursus level.
+//
+// No `limit: 1` — the cursus/Piscine split is the depth rule the server cannot
+// express, so the rows are narrowed in JS and the max taken there. Limiting
+// here would pick the top row *before* that filter and could hand back a
+// Piscine level.
+export const LEVEL = `{
+  transaction(
+    where: {
+      type: { _eq: "level" }
+      path: { _like: "${CURSUS_ROOT}/%" }
+    }
+    order_by: { amount: desc }
+  ) {
+    amount
+    path
   }
 }`;
 

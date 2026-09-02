@@ -6,30 +6,31 @@ export const DOMAIN = "platform.zone01.gr";
 export const SIGNIN_URL = `https://${DOMAIN}/api/auth/signin`;
 export const GRAPHQL_URL = `https://${DOMAIN}/api/graphql-engine/v1/graphql`;
 
-// The main-cursus root. Every transaction carries the `path` of the object
-// that earned it, and the tree has depth:
+// The main-cursus root. Every transaction carries the `path` of the object that
+// earned it, and the cursus tree has depth:
 //
-//   /athens/div-01/ascii-art                      <- a cursus project
-//   /athens/div-01/checkpoint/safe-sum            <- a cursus exam exercise
-//   /athens/div-01/piscine-rust                   <- the Piscine, rolled up
-//   /athens/div-01/piscine-rust/quest-01/ex-03    <- one Piscine exercise
+//   /athens/div-01/ascii-art                      <- a project
+//   /athens/div-01/checkpoint/safe-sum            <- an exam exercise
+//   /athens/div-01/piscine-rust                   <- a Piscine, rolled up
+//   /athens/div-01/piscine-rust/quest-01/ex-03    <- inside that Piscine
 //
-// The platform's own XP board counts the FIRST THREE and not the fourth: a
-// Piscine contributes a single rolled-up row ("Piscine Rust — 390 kB"), not the
-// hundreds of child rows underneath it. Those children exist as their own xp
-// transactions, so summing them as well double-counts the Piscines and inflates
-// the total (1.67 MB against the platform's 1.22 MB).
-//
-// A `_like "/athens/div-01/%"` prefix does NOT express this — the child rows
-// match that prefix too. The rule is a depth rule, so it is applied in JS after
-// the fetch (see isCursusPath in data/profile.js) rather than in the query:
-// keep a path if it sits directly under the cursus root, or under one of the
-// non-Piscine grouping folders like `checkpoint`.
+// The platform's own XP board counts the first three and not the fourth. A
+// Piscine is scored twice in the raw data — once as a rolled-up total on the
+// Piscine object itself ("Piscine Rust — 390 kB"), and again on every exercise
+// underneath it. The board keeps the roll-up and ignores the children; summing
+// both double-counts the Piscines and inflates the total.
 export const CURSUS_ROOT = "/athens/div-01";
 
-// Path segments directly under CURSUS_ROOT that group real cursus work rather
-// than being a single earnable object — their children still count.
-export const CURSUS_GROUP_SEGMENTS = ["checkpoint", "checkpoints"];
+// So the rule is: keep everything under the cursus root EXCEPT the rows nested
+// inside a Piscine roll-up.
+//
+// This is deliberately an exclude-list rather than an allow-list of "valid"
+// depths. Exams are foldered and the folder name is not stable — older ones sit
+// under `checkpoint/`, newer ones elsewhere — so an allow-list silently drops
+// whichever exams it fails to predict, and the total comes out just slightly
+// short in a way that is easy to miss. Piscines, by contrast, are the one thing
+// that is genuinely double-counted, and they are identifiable by name.
+export const PISCINE_SEGMENT = /^piscine(-|$)/i;
 
 // The sessionStorage key the JWT is stored under. Reads and writes go through
 // core/storage.js rather than touching storage directly.

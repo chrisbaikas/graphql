@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { CURSUS_ROOT, CURSUS_GROUP_SEGMENTS } from "../js/config.js";
+import { CURSUS_ROOT } from "../js/config.js";
 import { isCursusPath } from "../js/data/profile.js";
 import * as QUERIES from "../js/data/queries.js";
 
@@ -33,13 +33,25 @@ test("isCursusPath drops the exercises inside a Piscine", () => {
   assert.equal(isCursusPath(`${CURSUS_ROOT}/piscine-rust/quest-01`), false);
   assert.equal(isCursusPath(`${CURSUS_ROOT}/piscine-go/quest-01/ex-03`), false);
   assert.equal(isCursusPath(`${CURSUS_ROOT}/piscine-data-ai/w1/d2/ex`), false);
+  assert.equal(isCursusPath(`${CURSUS_ROOT}/piscine/quest-01`), false);
 });
 
-test("isCursusPath keeps exam exercises in a grouping folder", () => {
-  const group = CURSUS_GROUP_SEGMENTS[0];
-  assert.equal(isCursusPath(`${CURSUS_ROOT}/${group}/safe-sum`), true);
-  // ...but not a further level down.
-  assert.equal(isCursusPath(`${CURSUS_ROOT}/${group}/exam-01/safe-sum`), false);
+// "piscine-rust" is a Piscine; a project merely starting with those letters is
+// not, and must not be swept up with it.
+test("isCursusPath matches a Piscine segment, not any name containing it", () => {
+  assert.equal(isCursusPath(`${CURSUS_ROOT}/piscined-thing/ex`), true);
+  assert.equal(isCursusPath(`${CURSUS_ROOT}/my-piscine-notes/ex`), true);
+});
+
+// Exam folders are named inconsistently across years — older exams sit under
+// `checkpoint/`, the 2026 ones do not. An allow-list of folder names silently
+// dropped safe-sum, ascii-render and validate-stack (33 kB), leaving the total
+// 1.19 MB against the platform's 1.22 MB. Keep exams whatever the folder.
+test("isCursusPath keeps exam exercises whatever the folder is named", () => {
+  for (const folder of ["checkpoint", "checkpoints", "exam", "tests", "2026"]) {
+    assert.equal(isCursusPath(`${CURSUS_ROOT}/${folder}/safe-sum`), true, folder);
+  }
+  assert.equal(isCursusPath(`${CURSUS_ROOT}/a/b/c/validate-stack`), true);
 });
 
 test("isCursusPath drops anything outside the cursus root", () => {
@@ -69,6 +81,18 @@ test("XP queries fetch path and do not filter to project objects", () => {
     assert.ok(!query.includes('object: { type: { _eq: "project" } }'),
       `${name} must not drop piscine roll-ups and exam rows`);
   }
+});
+
+// The level track is per-event too: a Piscine levels independently of the
+// cursus, so an unscoped max would report a Piscine level as the cursus one.
+test("LEVEL is scoped to the cursus root and selects path", () => {
+  const query = QUERIES.LEVEL;
+  assert.match(query, /type:\s*\{\s*_eq:\s*"level"\s*\}/);
+  assert.ok(query.includes(`path: { _like: "${CURSUS_ROOT}/%" }`));
+  assert.match(query, /^\s*path\s*$/m, "LEVEL must select path");
+  // A server-side limit would pick a row before the depth filter runs and
+  // could hand back a piscine level.
+  assert.ok(!/limit:/.test(query), "LEVEL must not limit before filtering");
 });
 
 // The audit ratio is deliberately NOT path-scoped: audits are done across the

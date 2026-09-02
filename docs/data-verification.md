@@ -79,17 +79,21 @@ byte-formatted.
 > | `/athens/div-01/piscine-rust/quest-01/...` | **not** counted            |
 >
 > A Piscine is scored twice in the raw data: once as a rolled-up total on the
-> Piscine itself, and again on every exercise inside it. The platform keeps the
-> roll-up and ignores the children; summing both double-counts the Piscines
-> (1.67 MB against the platform's 1.22 MB). That is a *depth* rule, which
-> `_like` cannot express — the child rows match the prefix too. So the query
-> selects `path` and `isCursusPath()` in `js/data/profile.js` keeps only rows one
-> segment below `CURSUS_ROOT` (or two, under a grouping folder like
-> `checkpoint`).
+> Piscine object itself, and again on every exercise inside it. The board keeps
+> the roll-up and ignores the children; summing both double-counts the Piscines
+> (1.67 MB against the platform's 1.22 MB). `_like` cannot express that — the
+> child rows match the prefix too — so the query selects `path` and
+> `isCursusPath()` in `js/data/profile.js` drops rows nested inside a Piscine.
+>
+> The rule is an *exclude*-list, not an allow-list of valid depths. Exam folders
+> are named inconsistently across years (older exams sit under `checkpoint/`,
+> the 2026 ones do not), so allow-listing folder names silently dropped
+> `safe-sum`, `ascii-render` and `validate-stack` — 33 kB, showing as 1.19 MB
+> against 1.22 MB. Piscines are the one thing genuinely double-counted, and are
+> identifiable by name.
 
-- [ ] Sum of `amount` over rows with **exactly one** segment after
-      `/athens/div-01/` — plus those under `checkpoint/` — (formatted)
-      == *Total XP* on the dashboard
+- [ ] Sum of `amount` over rows **not** nested inside a `piscine-*` folder
+      (formatted) == *Total XP* on the dashboard
 - [ ] The figure matches *Total XP* on the platform's own XP board
 - [ ] *Transactions* on the dashboard == the platform's transaction count
 - [ ] The dashboard's "Transactions history" list ("Show more" expands it)
@@ -97,6 +101,37 @@ byte-formatted.
 - [ ] The result set contains only `xp` rows — no `level` / `up` / `down` noise
 - [ ] `/athens/div-01/piscine-rust` appears as a **single** row; no
       `/athens/div-01/piscine-rust/...` child row is counted
+
+---
+
+## Check 2b — Current level
+
+**UI:** "XP" card → *Current level*.
+
+```graphql
+{
+  transaction(
+    where: {
+      type: { _eq: "level" }
+      path: { _like: "/athens/div-01/%" }
+    }
+    order_by: { amount: desc }
+  ) { amount path }
+}
+```
+
+Level is re-issued as a new transaction on each level-up rather than
+accumulated, so the current level is the **maximum** `amount` — not the sum.
+
+The same rule as Check 2 applies: a Piscine runs its own level track, and those
+rows can sit *above* the cursus level. Note there is deliberately no `limit: 1`
+— that would pick the top row before the Piscine filter runs and could report a
+Piscine level as the cursus one.
+
+- [ ] Max `amount` over rows not nested inside a `piscine-*` folder
+      == *Current level*
+- [ ] The figure matches *Current level* on the platform's own XP board
+- [ ] No `/athens/div-01/piscine-*/...` row is the one selected
 
 ---
 
@@ -203,7 +238,7 @@ card shows the top 6 by that value.
 }
 ```
 
-Apply the same depth rule as Check 2 — the graph is drawn from exactly the rows
+Apply the same rule as Check 2 — the graph is drawn from exactly the rows
 the total is summed from, so its final value must equal *Total XP*.
 
 - [ ] The **Y-axis top label** equals the running total of the kept rows —

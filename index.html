@@ -98,6 +98,8 @@
         <dl class="info">
           <dt>Total XP</dt>
           <dd id="xp-total">—</dd>
+          <dt>Current level</dt>
+          <dd id="xp-level">—</dd>
           <dt>Transactions</dt>
           <dd id="xp-count">—</dd>
         </dl>
@@ -201,6 +203,8 @@
                   data-query="{ user { id login } }">User</button>
           <button type="button" class="link-btn gql-example"
                   data-query="{ transaction(where: { type: { _eq: &quot;xp&quot; }, path: { _like: &quot;/athens/div-01/%&quot; } } order_by: { createdAt: desc }) { amount path createdAt } }">Total XP</button>
+          <button type="button" class="link-btn gql-example"
+                  data-query="{ transaction(where: { type: { _eq: &quot;level&quot; }, path: { _like: &quot;/athens/div-01/%&quot; } } order_by: { amount: desc }) { amount path } }">Level</button>
           <button type="button" class="link-btn gql-example"
                   data-query="{ transaction(where: { type: { _in: [&quot;up&quot;, &quot;down&quot;] } }) { type amount } }">Audits</button>
           <button type="button" class="link-btn gql-example"
