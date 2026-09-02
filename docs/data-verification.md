@@ -54,15 +54,32 @@ which rows Hasura returns, so no user id filter is needed.
 **UI:** "XP" card → *Total XP*.
 
 ```graphql
-{ transaction(where: { type: { _eq: "xp" } }) { amount } }
+{
+  transaction(where: {
+    type: { _eq: "xp" }
+    path: { _like: "/athens/div-01/%" }
+  }) { amount }
+}
 ```
 
 Expected value = **sum of every `amount`**, then byte-formatted.
 
+> **Why the `path` filter.** Transactions carry the event they belong to in
+> `path`: `/athens/div-01/...` for the main cursus, `/athens/piscine-go/...`,
+> `/athens/piscine-rust/...`, `/athens/piscine-js/...` and
+> `/athens/piscine-data-ai/...` for the Piscines. The platform's own profile
+> page counts only the cursus toward Total XP. Dropping the filter sums the
+> Piscines in too and roughly doubles the figure, so the dashboard scopes every
+> XP query the same way (`CURSUS_PATH` in `js/config.js`).
+
 - [ ] Sum of `amount` (formatted) == *Total XP* on the dashboard
+- [ ] The figure matches *Total XP* on the platform's own profile page
 - [ ] The result set contains only `xp` rows — no `level` / `up` / `down` noise
       (sanity check: run `{ transaction { type } }` and confirm the filtered
       query returns strictly fewer rows)
+- [ ] Removing the `path` clause returns strictly MORE rows (the Piscine XP the
+      dashboard deliberately excludes); confirm the extra rows' paths all start
+      `/athens/piscine-`
 
 ---
 
@@ -96,7 +113,10 @@ Expected values:
 ```graphql
 {
   result(
-    where: { object: { type: { _eq: "project" } } }
+    where: {
+      path: { _like: "/athens/div-01/%" }
+      object: { type: { _eq: "project" } }
+    }
     order_by: { createdAt: desc }
     limit: 5
   ) {
@@ -110,6 +130,8 @@ Expected values:
       (5 shown; "Show N more" reveals the rest, up to the query's `limit: 30`)
 - [ ] Each item's status matches the rule `grade >= 1 → pass`, otherwise `fail`
 - [ ] Every returned `object.type` is `project`
+- [ ] Every returned `path` starts `/athens/div-01/` — Piscine exercises are
+      excluded, matching the platform's own "Last activity" panel
 
 ---
 
@@ -150,7 +172,10 @@ card shows the top 6 by that value.
 ```graphql
 {
   transaction(
-    where: { type: { _eq: "xp" } }
+    where: {
+      type: { _eq: "xp" }
+      path: { _like: "/athens/div-01/%" }
+    }
     order_by: { createdAt: asc }
   ) {
     amount
@@ -191,6 +216,7 @@ section and the graph, via `fetchAuditTotals()`).
   transaction(
     where: {
       type: { _eq: "xp" }
+      path: { _like: "/athens/div-01/%" }
       object: { type: { _eq: "project" } }
     }
     order_by: { amount: desc }

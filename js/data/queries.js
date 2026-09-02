@@ -7,6 +7,13 @@
 //   NORMAL           -> USER
 //   NESTED           -> RECENT_PROJECTS, PROJECT_XP  (object { ... } inside)
 //   WITH ARGUMENTS   -> XP_TRANSACTIONS, AUDIT_TOTALS, SKILLS, RECENT_PROJECTS
+//
+// Every XP query is additionally scoped to CURSUS_PATH. Without it the platform
+// returns Piscine rows (Go, Rust, JS, Data & AI) alongside the cursus ones, and
+// the dashboard's Total XP comes out far above the figure the platform's own
+// profile page shows. See config.js for why.
+
+import { CURSUS_PATH } from "../config.js";
 
 // The app's NORMAL query: no arguments, no nesting.
 export const USER = `{ user { id login } }`;
@@ -16,7 +23,10 @@ export const USER = `{ user { id login } }`;
 // though the total ignores it — one request feeding both beats two requests.
 export const XP_TRANSACTIONS = `{
   transaction(
-    where: { type: { _eq: "xp" } }
+    where: {
+      type: { _eq: "xp" }
+      path: { _like: "${CURSUS_PATH}" }
+    }
     order_by: { createdAt: asc }
   ) {
     amount
@@ -32,7 +42,10 @@ export const AUDIT_TOTALS = `{
 // NESTED: the latest project results with the related `object` inside each.
 export const RECENT_PROJECTS = `{
   result(
-    where: { object: { type: { _eq: "project" } } }
+    where: {
+      path: { _like: "${CURSUS_PATH}" }
+      object: { type: { _eq: "project" } }
+    }
     order_by: { createdAt: desc }
     limit: 30
   ) {
@@ -62,6 +75,7 @@ export const PROJECT_XP = `{
   transaction(
     where: {
       type: { _eq: "xp" }
+      path: { _like: "${CURSUS_PATH}" }
       object: { type: { _eq: "project" } }
     }
     order_by: { amount: desc }
