@@ -20,7 +20,9 @@ import { loadStatsSection } from "../sections/stats.js";
 export function showLogin() {
   const loginView = document.getElementById("login-view");
   const dashboardView = document.getElementById("dashboard-view");
-  if (loginView) loginView.style.display = "block";
+  // `flex`, not `block`: an inline display would override the stylesheet's
+  // `display: flex` on #login-view and drop the card out of the centre.
+  if (loginView) loginView.style.display = "flex";
   if (dashboardView) dashboardView.style.display = "none";
 }
 
