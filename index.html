@@ -98,7 +98,18 @@
         <dl class="info">
           <dt>Total XP</dt>
           <dd id="xp-total">—</dd>
+          <dt>Transactions</dt>
+          <dd id="xp-count">—</dd>
         </dl>
+        <!-- Where that total comes from: one row per xp transaction, newest
+             first, so the figure above can be checked against the platform's
+             own XP board without leaving the page. -->
+        <h3 class="subhead">Transactions history</h3>
+        <ul id="xp-list" class="recent"></ul>
+        <button type="button" id="xp-toggle" class="link-btn toggle"
+                aria-controls="xp-list" aria-expanded="false" hidden>
+          Show more
+        </button>
       </details>
 
       <!-- Section 3: Audits -->
@@ -189,7 +200,7 @@
           <button type="button" class="link-btn gql-example"
                   data-query="{ user { id login } }">User</button>
           <button type="button" class="link-btn gql-example"
-                  data-query="{ transaction(where: { type: { _eq: &quot;xp&quot; }, path: { _like: &quot;/athens/div-01/%&quot; } }) { amount } }">Total XP</button>
+                  data-query="{ transaction(where: { type: { _eq: &quot;xp&quot; }, path: { _like: &quot;/athens/div-01/%&quot; } } order_by: { createdAt: desc }) { amount path createdAt } }">Total XP</button>
           <button type="button" class="link-btn gql-example"
                   data-query="{ transaction(where: { type: { _in: [&quot;up&quot;, &quot;down&quot;] } }) { type amount } }">Audits</button>
           <button type="button" class="link-btn gql-example"

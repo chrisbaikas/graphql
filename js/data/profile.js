@@ -14,11 +14,51 @@
 // clearProfileCache() drops everything, so one user's data can never be served
 // to the next — it is called by logout() and again at the start of each load.
 
+import { CURSUS_ROOT, CURSUS_GROUP_SEGMENTS } from "../config.js";
 import { graphqlRequest } from "../core/graphql.js";
 import * as QUERIES from "./queries.js";
 import { formatSkillName } from "../ui/format.js";
 
 let cache = {};
+
+// Does this path name a row the platform's own XP board counts?
+//
+// The queries already restrict to the cursus root, but that is a prefix and the
+// cursus contains Piscines, which are scored twice over: once as a rolled-up
+// total on the Piscine itself ("/athens/div-01/piscine-rust" -> 390 kB) and
+// again on every exercise inside it. Counting both double-counts the Piscine.
+// The platform keeps the roll-up, so we keep the roll-up.
+//
+// The rule is therefore about depth, not prefix. Relative to CURSUS_ROOT:
+//
+//   ascii-art               1 segment   -> keep (a project, or a Piscine total)
+//   checkpoint/safe-sum     2, grouped  -> keep (exam exercises live in folders)
+//   piscine-rust/q-01/ex-3  3           -> drop (inside a Piscine roll-up)
+//
+// Anything outside the cursus root is dropped outright, so a caller can hand
+// this every row it has without pre-filtering.
+export function isCursusPath(path) {
+  if (typeof path !== "string") return false;
+  if (!path.startsWith(`${CURSUS_ROOT}/`)) return false;
+
+  const segments = path.slice(CURSUS_ROOT.length + 1).split("/").filter(Boolean);
+  if (segments.length === 1) return true;
+  // A grouping folder is scaffolding, not an earnable object, so its direct
+  // children are the real rows — but only one level down.
+  if (segments.length === 2 && CURSUS_GROUP_SEGMENTS.includes(segments[0])) {
+    return true;
+  }
+  return false;
+}
+
+// "/athens/div-01/piscine-rust" -> "Piscine rust". The last path segment is the
+// object's slug, which is what the platform labels the row with.
+function labelFromPath(path) {
+  const segments = String(path || "").split("/").filter(Boolean);
+  const slug = segments[segments.length - 1] || "Unknown";
+  const words = slug.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 export function clearProfileCache() {
   cache = {};
@@ -58,8 +98,22 @@ export function fetchUser() {
 export function fetchXpTransactions() {
   return once("xp", async () => {
     const data = await graphqlRequest(QUERIES.XP_TRANSACTIONS);
-    return data.transaction || [];
+    return (data.transaction || []).filter((t) => isCursusPath(t.path));
   });
+}
+
+// The xp rows as the XP card lists them: [{ name, amount, createdAt }, ...],
+// newest first. The name comes from the path's last segment — the same label
+// the platform's own XP board shows ("piscine-rust" -> "Piscine Rust").
+export async function fetchXpBreakdown() {
+  const transactions = await fetchXpTransactions();
+  return transactions
+    .map((t) => ({
+      name: labelFromPath(t.path),
+      amount: t.amount || 0,
+      createdAt: t.createdAt
+    }))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 // Total XP in bytes, summed from the rows above — no extra request.
@@ -88,7 +142,7 @@ export function fetchAuditTotals() {
 export function fetchRecentProjects() {
   return once("recent", async () => {
     const data = await graphqlRequest(QUERIES.RECENT_PROJECTS);
-    const results = data.result || [];
+    const results = (data.result || []).filter((r) => isCursusPath(r.path));
     return results.map((r) => ({
       name: (r.object && r.object.name) || "Unknown",
       passed: r.grade >= 1
@@ -129,7 +183,9 @@ export function fetchSkills() {
 export function fetchProjectXp() {
   return once("projectXp", async () => {
     const data = await graphqlRequest(QUERIES.PROJECT_XP);
-    const transactions = data.transaction || [];
+    const transactions = (data.transaction || []).filter((t) =>
+      isCursusPath(t.path)
+    );
 
     const totals = new Map();
     for (const t of transactions) {

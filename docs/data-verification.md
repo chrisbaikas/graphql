@@ -55,31 +55,48 @@ which rows Hasura returns, so no user id filter is needed.
 
 ```graphql
 {
-  transaction(where: {
-    type: { _eq: "xp" }
-    path: { _like: "/athens/div-01/%" }
-  }) { amount }
+  transaction(
+    where: {
+      type: { _eq: "xp" }
+      path: { _like: "/athens/div-01/%" }
+    }
+    order_by: { createdAt: desc }
+  ) { amount path createdAt }
 }
 ```
 
-Expected value = **sum of every `amount`**, then byte-formatted.
+Expected value = **sum of `amount` over the rows the app keeps**, then
+byte-formatted.
 
-> **Why the `path` filter.** Transactions carry the event they belong to in
-> `path`: `/athens/div-01/...` for the main cursus, `/athens/piscine-go/...`,
-> `/athens/piscine-rust/...`, `/athens/piscine-js/...` and
-> `/athens/piscine-data-ai/...` for the Piscines. The platform's own profile
-> page counts only the cursus toward Total XP. Dropping the filter sums the
-> Piscines in too and roughly doubles the figure, so the dashboard scopes every
-> XP query the same way (`CURSUS_PATH` in `js/config.js`).
+> **Why this needs a second, in-app filter.** Transactions carry the `path` of
+> the object that earned them, and the cursus tree has depth:
+>
+> | path                                       | on the platform's XP board |
+> | ------------------------------------------ | -------------------------- |
+> | `/athens/div-01/ascii-art`                 | counted (a project)        |
+> | `/athens/div-01/checkpoint/safe-sum`       | counted (an exam exercise) |
+> | `/athens/div-01/piscine-rust`              | counted — **one** 390 kB row |
+> | `/athens/div-01/piscine-rust/quest-01/...` | **not** counted            |
+>
+> A Piscine is scored twice in the raw data: once as a rolled-up total on the
+> Piscine itself, and again on every exercise inside it. The platform keeps the
+> roll-up and ignores the children; summing both double-counts the Piscines
+> (1.67 MB against the platform's 1.22 MB). That is a *depth* rule, which
+> `_like` cannot express — the child rows match the prefix too. So the query
+> selects `path` and `isCursusPath()` in `js/data/profile.js` keeps only rows one
+> segment below `CURSUS_ROOT` (or two, under a grouping folder like
+> `checkpoint`).
 
-- [ ] Sum of `amount` (formatted) == *Total XP* on the dashboard
-- [ ] The figure matches *Total XP* on the platform's own profile page
+- [ ] Sum of `amount` over rows with **exactly one** segment after
+      `/athens/div-01/` — plus those under `checkpoint/` — (formatted)
+      == *Total XP* on the dashboard
+- [ ] The figure matches *Total XP* on the platform's own XP board
+- [ ] *Transactions* on the dashboard == the platform's transaction count
+- [ ] The dashboard's "Transactions history" list ("Show more" expands it)
+      lists the same rows, newest first, as the platform's board
 - [ ] The result set contains only `xp` rows — no `level` / `up` / `down` noise
-      (sanity check: run `{ transaction { type } }` and confirm the filtered
-      query returns strictly fewer rows)
-- [ ] Removing the `path` clause returns strictly MORE rows (the Piscine XP the
-      dashboard deliberately excludes); confirm the extra rows' paths all start
-      `/athens/piscine-`
+- [ ] `/athens/div-01/piscine-rust` appears as a **single** row; no
+      `/athens/div-01/piscine-rust/...` child row is counted
 
 ---
 
@@ -121,6 +138,7 @@ Expected values:
     limit: 5
   ) {
     grade
+    path
     object { name type }
   }
 }
@@ -180,11 +198,15 @@ card shows the top 6 by that value.
   ) {
     amount
     createdAt
+    path
   }
 }
 ```
 
-- [ ] The **Y-axis top label** equals the running total of all `amount` —
+Apply the same depth rule as Check 2 — the graph is drawn from exactly the rows
+the total is summed from, so its final value must equal *Total XP*.
+
+- [ ] The **Y-axis top label** equals the running total of the kept rows —
       i.e. the *same* number as *Total XP* in Check 2
 - [ ] The **left X-axis label** equals the first row's `createdAt` (DD/MM/YYYY)
 - [ ] The **right X-axis label** equals the last row's `createdAt` (DD/MM/YYYY)
@@ -217,12 +239,12 @@ section and the graph, via `fetchAuditTotals()`).
     where: {
       type: { _eq: "xp" }
       path: { _like: "/athens/div-01/%" }
-      object: { type: { _eq: "project" } }
     }
     order_by: { amount: desc }
   ) {
     amount
     objectId
+    path
     object { id name }
   }
 }
@@ -239,7 +261,8 @@ projects into a single bar. `objectId` is the fallback key when the nested
       ("Show N more" redraws the graph with every project)
 - [ ] Each value label == that project's summed XP, byte-formatted
 - [ ] Bar lengths are proportional to their values
-- [ ] The listed projects all appear in the platform's own project list
+- [ ] The listed projects all appear in the platform's own XP board
+- [ ] The bars sum to *Total XP* (Check 2) — same rows, grouped instead of summed
 
 ---
 

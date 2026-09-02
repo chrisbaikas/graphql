@@ -63,6 +63,8 @@ export function showLoading() {
   if (recent) recent.innerHTML = "<li>Loading…</li>";
   const skills = document.getElementById("skills-list");
   if (skills) skills.innerHTML = "<li>Loading…</li>";
+  const xp = document.getElementById("xp-list");
+  if (xp) xp.innerHTML = "<li>Loading…</li>";
 
   const profile = document.getElementById("profile");
   if (!profile) return;
@@ -94,6 +96,8 @@ export function resetProfile() {
   if (recent) recent.innerHTML = "<li>—</li>";
   const skills = document.getElementById("skills-list");
   if (skills) skills.innerHTML = "<li>—</li>";
+  const xp = document.getElementById("xp-list");
+  if (xp) xp.innerHTML = "<li>—</li>";
 
   const profile = document.getElementById("profile");
   if (!profile) return;

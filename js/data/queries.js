@@ -8,12 +8,11 @@
 //   NESTED           -> RECENT_PROJECTS, PROJECT_XP  (object { ... } inside)
 //   WITH ARGUMENTS   -> XP_TRANSACTIONS, AUDIT_TOTALS, SKILLS, RECENT_PROJECTS
 //
-// Every XP query is additionally scoped to CURSUS_PATH. Without it the platform
-// returns Piscine rows (Go, Rust, JS, Data & AI) alongside the cursus ones, and
-// the dashboard's Total XP comes out far above the figure the platform's own
-// profile page shows. See config.js for why.
+// The XP queries fetch `path` and filter on the cursus root, then the data layer
+// narrows further to the depth the platform's own XP board counts — see
+// isCursusPath() in profile.js and the CURSUS_ROOT comment in config.js.
 
-import { CURSUS_PATH } from "../config.js";
+import { CURSUS_ROOT } from "../config.js";
 
 // The app's NORMAL query: no arguments, no nesting.
 export const USER = `{ user { id login } }`;
@@ -25,12 +24,13 @@ export const XP_TRANSACTIONS = `{
   transaction(
     where: {
       type: { _eq: "xp" }
-      path: { _like: "${CURSUS_PATH}" }
+      path: { _like: "${CURSUS_ROOT}/%" }
     }
     order_by: { createdAt: asc }
   ) {
     amount
     createdAt
+    path
   }
 }`;
 
@@ -43,13 +43,14 @@ export const AUDIT_TOTALS = `{
 export const RECENT_PROJECTS = `{
   result(
     where: {
-      path: { _like: "${CURSUS_PATH}" }
+      path: { _like: "${CURSUS_ROOT}/%" }
       object: { type: { _eq: "project" } }
     }
     order_by: { createdAt: desc }
-    limit: 30
+    limit: 60
   ) {
     grade
+    path
     object {
       name
       type
@@ -75,13 +76,13 @@ export const PROJECT_XP = `{
   transaction(
     where: {
       type: { _eq: "xp" }
-      path: { _like: "${CURSUS_PATH}" }
-      object: { type: { _eq: "project" } }
+      path: { _like: "${CURSUS_ROOT}/%" }
     }
     order_by: { amount: desc }
   ) {
     amount
     objectId
+    path
     object {
       id
       name
