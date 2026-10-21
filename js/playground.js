@@ -10,10 +10,23 @@
 // and renders whatever comes back, errors included.
 
 import { DEFAULT_PLAYGROUND_QUERY, GRAPHQL_URL } from "./config.js";
-import { fetchWithTimeout, TimeoutError } from "./core/http.js";
+import { fetchWithTimeout, readResponse, TimeoutError } from "./core/http.js";
 import { isTokenExpired } from "./core/jwt.js";
 import { getToken } from "./core/storage.js";
-import { currentSession, endSession, isCurrentSession } from "./core/session.js";
+import { currentSession, endSession, isCurrentSession, sessionSignal } from "./core/session.js";
+
+import { isGraphqlEnvelope, hasSessionError } from "./core/graphqlResponse.js";
+import * as QUERIES from "./data/queries.js";
+
+let activeRun = null;
+
+export function parseVariables(raw) {
+  const variables = raw.trim() ? JSON.parse(raw) : {};
+  if (!variables || typeof variables !== "object" || Array.isArray(variables)) {
+    throw new Error("Variables must be a JSON object.");
+  }
+  return variables;
+}
 
 export async function runPlaygroundQuery() {
   const queryEl = document.getElementById("gql-query");
@@ -22,6 +35,7 @@ export async function runPlaygroundQuery() {
   const runBtn = document.getElementById("gql-run");
   const statusEl = document.getElementById("gql-status");
   if (!queryEl || !resultEl) return;
+  if (activeRun) return;
 
   const query = queryEl.value.trim();
   const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
@@ -34,24 +48,23 @@ export async function runPlaygroundQuery() {
 
   // Variables are parsed here so a JSON typo is reported as such, rather than
   // reaching the server as a confusing GraphQL error.
-  let variables = {};
-  const rawVars = varsEl ? varsEl.value.trim() : "";
-  if (rawVars) {
-    try {
-      variables = JSON.parse(rawVars);
-    } catch (err) {
-      resultEl.textContent = `Variables are not valid JSON:\n${err.message}`;
-      setStatus("Invalid variables");
-      return;
-    }
+  let variables;
+  try {
+    variables = parseVariables(varsEl?.value || "");
+  } catch (err) {
+    resultEl.textContent = `Invalid variables:\n${err.message}`;
+    setStatus("Invalid variables");
+    return;
   }
 
   const jwt = getToken();
   if (!jwt || isTokenExpired(jwt)) {
-    endSession();
+    endSession("Your session has expired. Please log in again.");
     return;
   }
 
+  const run = {};
+  activeRun = run;
   if (runBtn) runBtn.disabled = true;
   setStatus("Running…");
   const startedAt = Date.now();
@@ -60,10 +73,11 @@ export async function runPlaygroundQuery() {
   // else) while it is in flight, the answer belongs to a session that is gone
   // and must not be rendered into the next user's playground.
   const session = currentSession();
+  const isActive = () => activeRun === run && isCurrentSession(session) && getToken() === jwt;
 
   try {
     const response = await fetchWithTimeout(GRAPHQL_URL, {
-      method: "POST",
+      method: "POST", signal: sessionSignal(),
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${jwt}`
@@ -71,44 +85,52 @@ export async function runPlaygroundQuery() {
       body: JSON.stringify({ query, variables })
     });
 
-    if (!isCurrentSession(session)) return;
+    if (!isActive()) return;
 
     // A rejected token ends the session here as it would anywhere else.
-    if (response.status === 401 || response.status === 403) {
-      endSession();
+    if (response.status === 401) {
+      endSession("Your session is no longer valid. Please log in again.");
       return;
     }
 
     let result;
     try {
-      result = await response.json();
-    } catch {
-      if (!isCurrentSession(session)) return;
+      result = await readResponse(response);
+    } catch (err) {
+      if (!isActive()) return;
+      if (err instanceof TimeoutError || err?.name === "AbortError") throw err;
       resultEl.textContent = "The server returned a non-JSON response.";
-      setStatus("Failed");
+      setStatus(response.ok ? "Failed" : `HTTP ${response.status} · Failed`);
       return;
     }
 
-    if (!isCurrentSession(session)) return;
+    if (!isActive()) return;
+
+    if (hasSessionError(result)) {
+      endSession("Your session is no longer valid. Please log in again.");
+      return;
+    }
+    if (response.ok && !isGraphqlEnvelope(result)) {
+      resultEl.textContent = "The server returned an invalid GraphQL response.";
+      setStatus("Failed");
+      return;
+    }
 
     // Render the whole envelope — `errors` and `data` alike — so a failed query
     // is as informative as a successful one.
     resultEl.textContent = JSON.stringify(result, null, 2);
 
     const ms = Date.now() - startedAt;
-    if (result.errors && result.errors.length) {
+    if (!response.ok) {
+      setStatus(`HTTP ${response.status} · Failed · ${ms} ms`);
+    } else if (result.errors?.length) {
       const count = result.errors.length;
       setStatus(`${count} error${count === 1 ? "" : "s"} · ${ms} ms`);
-    } else if (!response.ok) {
-      // A JSON body with a failing status (a 500 carrying `{"message": ...}`,
-      // say) has no `errors[]` to count, but it is not a successful query
-      // either — the body is still shown, the status says so.
-      setStatus(`HTTP ${response.status} · Failed · ${ms} ms`);
     } else {
       setStatus(`OK · ${ms} ms`);
     }
   } catch (err) {
-    if (!isCurrentSession(session)) return;
+    if (!isActive()) return;
     // A timeout is its own outcome — the query may simply be an expensive one,
     // which is worth saying rather than blaming the network.
     if (err instanceof TimeoutError) {
@@ -119,15 +141,23 @@ export async function runPlaygroundQuery() {
     }
     // Only a fetch rejection is a network problem; anything else here (a DOM
     // failure, a stringify error) would be misreported as one.
+    if (err?.name === "AbortError") {
+      resultEl.textContent = "The query was cancelled.";
+      setStatus("Cancelled");
+      return;
+    }
     const isNetwork = err instanceof TypeError;
     resultEl.textContent = isNetwork
       ? "Network error — could not reach the GraphQL server."
       : `Something went wrong: ${err.message}`;
     setStatus("Failed");
   } finally {
-    // The button is re-enabled regardless: it belongs to the page, not to the
-    // session whose response we may have just discarded.
-    if (runBtn) runBtn.disabled = false;
+    // Reset handles session changes; an old run must not re-enable the button
+    // while a newer session's query is still running.
+    if (activeRun === run) {
+      activeRun = null;
+      if (runBtn) runBtn.disabled = false;
+    }
   }
 }
 
@@ -152,7 +182,10 @@ export function setupPlayground() {
   // so nothing fires against the endpoint unasked.
   for (const btn of document.querySelectorAll(".gql-example")) {
     btn.addEventListener("click", () => {
-      queryEl.value = btn.dataset.query || "";
+      queryEl.value = QUERIES[btn.dataset.query] || DEFAULT_PLAYGROUND_QUERY;
+      if (document.getElementById("gql-variables")) {
+        document.getElementById("gql-variables").value = "";
+      }
       queryEl.focus();
     });
   }
@@ -161,6 +194,9 @@ export function setupPlayground() {
 // Clear the playground's result pane — called on logout so one user's query
 // output can't linger for the next.
 export function resetPlayground() {
+  activeRun = null;
+  const runBtn = document.getElementById("gql-run");
+  if (runBtn) runBtn.disabled = false;
   const resultEl = document.getElementById("gql-result");
   const statusEl = document.getElementById("gql-status");
   const queryEl = document.getElementById("gql-query");

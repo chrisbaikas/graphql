@@ -35,12 +35,15 @@ index.html          # login view (#login-view) + dashboard view (#dashboard-view
 css/style.css       # styles (one file on purpose — see below)
 js/
   main.js           # ENTRY POINT: wiring + routing, nothing else
-  config.js         # DOMAIN/URLs, display constants, localStorage key
+  config.js         # DOMAIN/URLs, display constants, sessionStorage key
   playground.js     # the in-app GraphiQL card
   core/
     auth.js         # login(), logout(), cleanToken()
     graphql.js      # graphqlRequest() — the ONLY dashboard GraphQL transport
+    graphqlResponse.js # envelope validation + session-error detection
     jwt.js          # decodeJwtPayload(), isTokenExpired()
+    storage.js      # guarded sessionStorage access for the JWT
+    http.js         # shared request timeout
     session.js      # session-end hook + SilentError (breaks the import cycle)
   data/
     queries.js      # every GraphQL query string, named
@@ -77,7 +80,8 @@ docs/               # instructions, audit criteria, ticket tracker
 - **`core/session.js` exists to break an import cycle**: `graphql.js` must end
   the session, but importing `auth.js` would close the loop
   `graphql -> auth -> views -> sections -> graphql`. `main.js` registers
-  `logout` there once at start-up.
+  the logout/error callback there once at start-up. New session generations also
+  abort their predecessor's requests through `sessionSignal()`.
 - **`css/style.css` stays one file.** Splitting it means extra `<link>` requests
   or serialised `@import`s, and there is no build step to concatenate.
 
@@ -91,24 +95,28 @@ make run          # serves on http://localhost:8042 (override: make run PORT=900
 the app loads as ES modules, which browsers fetch under CORS rules, so
 `file://` fails outright rather than partially.
 
-There are no automated tests; verify by running the server and checking
-behaviour in the browser + DevTools network tab. After editing JS, sanity-check
+Run `make test` for the dependency-free Node tests (Node 22.7+ for native ES
+module detection). Also verify behaviour in the browser + DevTools network tab;
+stubbed API tests do not replace the live GraphiQL checks. After editing JS, sanity-check
 syntax — note `node --check` needs the module flag for these files:
 
 ```bash
-for f in $(find js -name '*.js'); do cp "$f" /tmp/c.mjs && node --check /tmp/c.mjs || echo "FAIL $f"; done
+make check  # tests + module syntax checks; fails immediately on errors
 ```
 
 ## Key facts in code
 
 - Platform domain lives in one place: `DOMAIN` in [js/config.js](js/config.js).
   `SIGNIN_URL` and `GRAPHQL_URL` are derived from it — do not hardcode URLs
-  elsewhere. The `localStorage` key is `TOKEN_KEY` in the same file.
+  elsewhere (the static meta-CSP in `index.html` also needs the domain allowlist).
+  The `sessionStorage` key is `TOKEN_KEY` in the same file.
 - Auth: `POST` to `SIGNIN_URL` with `Authorization: Basic base64(identifier:password)`.
   Login must accept **both** `username:password` and `email:password`.
 - The returned JWT may come back wrapped in quotes — trim them before use.
 - GraphQL requests use `Authorization: Bearer <jwt>` against `GRAPHQL_URL`.
-- The JWT is stored in `localStorage` under the key `token`.
+- The JWT is stored only in `sessionStorage` under the key `token`.
+  `core/storage.js` deletes a legacy `localStorage.token` at startup/login/logout;
+  it never reads, migrates, or writes that old credential. Tabs have independent sessions.
 
 ## Conventions
 
@@ -129,6 +137,6 @@ pass. Update [docs/ticket-tracker.md](docs/ticket-tracker.md) accordingly.
 
 ## Git
 
-- Don't commit or push unless explicitly asked. If asked, branch off `main`
-  first.
+- Don't commit or push unless explicitly asked. Follow the user's branch
+  instructions; otherwise branch off `main` before committing.
 - Never commit credentials or a real JWT.

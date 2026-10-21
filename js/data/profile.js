@@ -6,7 +6,7 @@
 //
 // Each fetcher caches its in-flight promise for the current dashboard load.
 // loadProfile() starts several consumers at once and more than one of them
-// wants the same rows: the XP card and the XP-over-time graph share
+// wants the same rows: the XP card and both XP graphs share
 // XP_TRANSACTIONS, and the audit card and audit graph share AUDIT_TOTALS.
 // Caching the promise (not the resolved value) means concurrent callers join
 // the same request rather than racing two identical ones.
@@ -17,9 +17,11 @@
 import { CURSUS_ROOT, PISCINE_SEGMENT } from "../config.js";
 import { graphqlRequest } from "../core/graphql.js";
 import * as QUERIES from "./queries.js";
+import { currentSession } from "../core/session.js";
 import { formatSkillName } from "../ui/format.js";
 
 let cache = {};
+let cacheSession = currentSession();
 
 // Does this path name a row the platform's own XP board counts?
 //
@@ -53,6 +55,7 @@ export function isCursusPath(path) {
 }
 
 export function clearProfileCache() {
+  cacheSession = currentSession();
   cache = {};
 }
 
@@ -66,6 +69,7 @@ export function clearProfileCache() {
 // bookkeeping chain settled; callers still see the real rejection because they
 // await the original promise.
 function once(key, fn) {
+  if (cacheSession !== currentSession()) clearProfileCache();
   if (!cache[key]) {
     const promise = fn();
     promise.catch(() => { if (cache[key] === promise) delete cache[key]; });
@@ -74,13 +78,45 @@ function once(key, fn) {
   return cache[key];
 }
 
+// Missing arrays/invalid numbers are errors, not believable zero totals.
+function rowsFrom(data, field) {
+  const rows = data[field];
+  if (!Array.isArray(rows) || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row))) {
+    throw new Error(`Invalid ${field} data returned by the platform.`);
+  }
+  return rows;
+}
+
+function amountOf(row) {
+  if (row.amount === null) return 0;
+  if (!Number.isFinite(row.amount)) throw new Error("Invalid transaction amount returned by the platform.");
+  return row.amount;
+}
+
+async function fetchRows(query, field, enough = () => false) {
+  const rows = [];
+  const seen = new Set();
+  while (true) {
+    const data = await graphqlRequest(query, { limit: 500, offset: rows.length });
+    const page = rowsFrom(data, field);
+    if (!page.length) return rows;
+    for (const row of page) {
+      if (!Number.isInteger(row.id)) throw new Error("Invalid row ID returned by the platform.");
+      if (seen.has(row.id)) throw new Error("Platform data changed during loading. Please reload.");
+      seen.add(row.id);
+      rows.push(row);
+    }
+    if (enough(rows)) return rows;
+  }
+}
+
 // The NORMAL query. Returns { id, login } or throws if the platform returned
 // no user at all.
 export function fetchUser() {
   return once("user", async () => {
     const data = await graphqlRequest(QUERIES.USER);
-    const user = data.user && data.user[0];
-    if (!user) throw new Error("No user data returned.");
+    const user = rowsFrom(data, "user")[0];
+    if (!user || typeof user.login !== "string" || !Number.isInteger(user.id)) throw new Error("No user data returned.");
     return user;
   });
 }
@@ -89,8 +125,13 @@ export function fetchUser() {
 // Shared by the XP total card and the cumulative-XP graph.
 export function fetchXpTransactions() {
   return once("xp", async () => {
-    const data = await graphqlRequest(QUERIES.XP_TRANSACTIONS);
-    return (data.transaction || []).filter((t) => isCursusPath(t.path));
+    const rows = await fetchRows(QUERIES.XP_TRANSACTIONS, "transaction");
+    return rows.filter((t) => isCursusPath(t.path)).map((t) => {
+      if (typeof t.createdAt !== "string" || !Number.isFinite(Date.parse(t.createdAt))) {
+        throw new Error("Invalid XP date returned by the platform.");
+      }
+      return { ...t, amount: amountOf(t) };
+    });
   });
 }
 
@@ -128,7 +169,7 @@ export async function fetchXpBreakdown() {
 // Total XP in bytes, summed from the rows above — no extra request.
 export async function fetchTotalXp() {
   const transactions = await fetchXpTransactions();
-  return transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+  return transactions.reduce((sum, t) => sum + t.amount, 0);
 }
 
 // The current cursus level — the highest `level` transaction the platform
@@ -136,10 +177,9 @@ export async function fetchTotalXp() {
 // maximum is the current level, never the sum.
 export function fetchLevel() {
   return once("level", async () => {
-    const data = await graphqlRequest(QUERIES.LEVEL);
-    const rows = (data.transaction || []).filter((t) => isCursusPath(t.path));
+    const rows = (await fetchRows(QUERIES.LEVEL, "transaction")).filter((t) => isCursusPath(t.path));
     if (!rows.length) return null;
-    return rows.reduce((max, t) => Math.max(max, t.amount || 0), 0);
+    return rows.reduce((max, t) => Math.max(max, amountOf(t)), 0);
   });
 }
 
@@ -147,13 +187,13 @@ export function fetchLevel() {
 // (`received` = "down"). Shared by the audit card and the audit graph.
 export function fetchAuditTotals() {
   return once("audit", async () => {
-    const data = await graphqlRequest(QUERIES.AUDIT_TOTALS);
-    const transactions = data.transaction || [];
+    const transactions = await fetchRows(QUERIES.AUDIT_TOTALS, "transaction");
     let done = 0;
     let received = 0;
     for (const t of transactions) {
-      if (t.type === "up") done += t.amount || 0;
-      else if (t.type === "down") received += t.amount || 0;
+      if (t.type !== "up" && t.type !== "down") throw new Error("Invalid audit type returned by the platform.");
+      if (t.type === "up") done += amountOf(t);
+      else if (t.type === "down") received += amountOf(t);
     }
     return { done, received };
   });
@@ -162,11 +202,12 @@ export function fetchAuditTotals() {
 // Recent project results as [{ name, passed }, ...], newest first.
 export function fetchRecentProjects() {
   return once("recent", async () => {
-    const data = await graphqlRequest(QUERIES.RECENT_PROJECTS);
-    const results = (data.result || []).filter((r) => isCursusPath(r.path));
+    const rows = await fetchRows(QUERIES.RECENT_PROJECTS, "result",
+      (page) => page.filter((r) => isCursusPath(r.path)).length >= 60);
+    const results = rows.filter((r) => isCursusPath(r.path)).slice(0, 60);
     return results.map((r) => ({
       name: (r.object && r.object.name) || "Unknown",
-      passed: r.grade >= 1
+      passed: Number.isFinite(r.grade) ? r.grade >= 1 : null
     }));
   });
 }
@@ -174,16 +215,17 @@ export function fetchRecentProjects() {
 // Current skill levels as [{ name, amount }, ...], strongest first.
 //
 // A skill is re-recorded as it improves, so the CURRENT level is the highest
-// amount seen for that type — not the sum. The query orders by amount desc, so
-// the first row for a given type is already its peak.
+// amount seen for that type — not the sum. Compute the maximum explicitly so
+// neither page ordering nor ties can select an older, lower score.
 export function fetchSkills() {
   return once("skills", async () => {
-    const data = await graphqlRequest(QUERIES.SKILLS);
-    const transactions = data.transaction || [];
+    const transactions = await fetchRows(QUERIES.SKILLS, "transaction");
 
     const best = new Map();
     for (const t of transactions) {
-      if (!best.has(t.type)) best.set(t.type, t.amount || 0);
+      if (typeof t.type !== "string") throw new Error("Invalid skill type returned by the platform.");
+      if (!t.type.startsWith("skill_")) continue;
+      best.set(t.type, Math.max(best.get(t.type) ?? -Infinity, amountOf(t)));
     }
 
     return [...best.entries()]
@@ -203,10 +245,7 @@ export function fetchSkills() {
 // "Unknown". The name is carried along purely as the bar's label.
 export function fetchProjectXp() {
   return once("projectXp", async () => {
-    const data = await graphqlRequest(QUERIES.PROJECT_XP);
-    const transactions = (data.transaction || []).filter((t) =>
-      isCursusPath(t.path)
-    );
+    const transactions = await fetchXpTransactions();
 
     const totals = new Map();
     for (const t of transactions) {
@@ -215,7 +254,7 @@ export function fetchProjectXp() {
       // a row with neither keeps its own identity rather than joining a shared
       // "Unknown" bucket.
       const id = (object && object.id) ?? t.objectId ?? `unknown:${totals.size}`;
-      const name = (object && object.name) || "Unknown";
+      const name = labelForRow(t);
 
       const entry = totals.get(id);
       if (entry) entry.amount += t.amount || 0;

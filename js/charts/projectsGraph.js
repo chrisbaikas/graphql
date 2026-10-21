@@ -92,31 +92,37 @@ export function renderProjectsGraph(expanded) {
     const height = padTop + padBottom + projects.length * rowH;
     const plotW = width - padLeft - padRight;
 
-    const max = projects[0].amount || 1;
+    const max = projects.reduce((value, project) => Math.max(value, project.amount), 0);
+    const min = projects.reduce((value, project) => Math.min(value, project.amount), 0);
+    const span = max - min || 1;
+    const sx = (value) => padLeft + ((value - min) / span) * plotW;
+    const baseline = sx(0);
 
     const svg = createSvg(width, height);
     svg.setAttribute("aria-label", "XP earned per project");
+    box.setAttribute("aria-description", projects.map((project) => `${project.name}: ${formatXp(project.amount)}`).join("; "));
 
     // Only a vertical baseline here — a horizontal bar chart has no x axis line
     // to speak of, and the value labels carry the scale.
     svg.appendChild(svgEl("line", {
-      x1: padLeft, y1: padTop, x2: padLeft, y2: padTop + projects.length * rowH,
+      x1: baseline, y1: padTop, x2: baseline, y2: padTop + projects.length * rowH,
       stroke: CHART.axis, "stroke-width": 1
     }));
 
     const barH = rowH * 0.6;
     projects.forEach((project, i) => {
       const y = padTop + i * rowH + (rowH - barH) / 2;
-      const w = Math.max(1, (project.amount / max) * plotW);
+      const w = Math.abs(sx(project.amount) - baseline);
+      const x = Math.min(sx(project.amount), baseline);
 
       // Grows out from the axis. `transform-origin` is a presentation
       // attribute rather than an inline style so the CSP's `style-src 'self'`
       // does not block it; .bar-grow-x in the stylesheet carries the animation
       // and inherits the existing reduced-motion opt-out.
       const rect = svgEl("rect", {
-        x: padLeft, y, width: w, height: barH, fill: "#38bdf8", rx: 3,
+        x, y, width: w, height: barH, fill: "#38bdf8", rx: 3,
         class: "bar-grow-x",
-        "transform-origin": `${padLeft} ${y + barH / 2}`
+        "transform-origin": `${baseline} ${y + barH / 2}`
       });
       // The full name, not the truncated label: the gutter text may be cut
       // short, so hovering is how a long project name is read in full.
@@ -126,18 +132,28 @@ export function renderProjectsGraph(expanded) {
       // Project name in the left gutter, vertically centred on its bar.
       svg.appendChild(svgText(truncate(project.name, 18), {
         x: padLeft - 8, y: y + barH / 2,
-        "text-anchor": "end", "dominant-baseline": "middle"
+        "text-anchor": "end", "dominant-baseline": "middle",
+        "data-max-width": padLeft - 16
       }));
 
       // XP value just past the end of the bar.
       svg.appendChild(svgText(formatXp(project.amount), {
-        x: padLeft + w + 6, y: y + barH / 2,
-        "dominant-baseline": "middle", fill: CHART.value
+        x: Math.max(sx(project.amount), baseline) + 6, y: y + barH / 2,
+        "dominant-baseline": "middle", fill: CHART.value, "data-max-width": padRight - 8
       }));
     });
 
     box.innerHTML = "";
     box.appendChild(svg);
+    // SVG text has no ellipsis layout. Fit unusually wide glyphs/large values
+    // after insertion so labels stay inside their measured gutters.
+    for (const text of svg.querySelectorAll("text[data-max-width]")) {
+      const width = Number(text.getAttribute("data-max-width"));
+      if (text.getComputedTextLength() > width) {
+        text.setAttribute("textLength", width);
+        text.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      }
+    }
   } catch (err) {
     box.innerHTML = '<p class="graph-placeholder">Could not draw project graph.</p>';
     reportSectionError("Could not draw project graph", err);

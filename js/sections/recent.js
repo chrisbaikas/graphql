@@ -30,7 +30,7 @@ export async function loadRecentSection() {
       const li = document.createElement("li");
       li.className = "recent-item";
       // textContent, not innerHTML: the project name comes from the platform.
-      li.textContent = `${project.name} — ${project.passed ? "pass" : "fail"}`;
+      li.textContent = `${project.name} — ${project.passed === null ? "pending" : project.passed ? "pass" : "fail"}`;
       listEl.appendChild(li);
     }
 

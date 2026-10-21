@@ -1,13 +1,18 @@
 /* ---------------- AUTH ---------------- */
 
 import { SIGNIN_URL } from "../config.js";
-import { fetchWithTimeout, TimeoutError } from "./http.js";
+import { fetchWithTimeout, readResponse, TimeoutError } from "./http.js";
 import { clearToken, setToken } from "./storage.js";
+import { isTokenExpired } from "./jwt.js";
+import { currentSession, isCurrentSession, sessionSignal } from "./session.js";
 import { showError } from "../ui/errors.js";
 import { resetProfile, showDashboard, showLogin } from "../ui/views.js";
 
+let activeLogin = null;
+
 export async function login(event) {
   if (event) event.preventDefault();
+  if (activeLogin) return;
 
   // Works for both "username:password" and "email:password" — the platform
   // accepts either identifier in the Basic auth header.
@@ -24,6 +29,9 @@ export async function login(event) {
   }
 
   const submitBtn = document.getElementById("login-btn");
+  const session = currentSession();
+  const attempt = {};
+  activeLogin = attempt;
   if (submitBtn) submitBtn.disabled = true;
 
   try {
@@ -36,6 +44,7 @@ export async function login(event) {
     try {
       response = await fetchWithTimeout(SIGNIN_URL, {
         method: "POST",
+        signal: sessionSignal(),
         headers: {
           "Authorization": `Basic ${credentials}`
         }
@@ -60,9 +69,13 @@ export async function login(event) {
       );
     }
 
-    const jwt = cleanToken(await response.text());
+    const jwt = cleanToken(await readResponse(response, "text"));
+    if (!isCurrentSession(session)) return;
     if (!jwt) {
       throw new Error("Login failed: no token returned by the server.");
+    }
+    if (isTokenExpired(jwt)) {
+      throw new Error("Login failed: the server returned an invalid or expired token.");
     }
 
     if (!setToken(jwt)) {
@@ -79,9 +92,13 @@ export async function login(event) {
     if (passwordEl) passwordEl.value = "";
     showDashboard();
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     showError(err.message);
   } finally {
-    if (submitBtn) submitBtn.disabled = false;
+    if (activeLogin === attempt) {
+      activeLogin = null;
+      if (submitBtn) submitBtn.disabled = false;
+    }
   }
 }
 
@@ -90,6 +107,9 @@ export async function login(event) {
 // stored token and resets rendered values so no protected data lingers — but
 // keeps the card structure intact so a later re-login can repopulate it.
 export function logout() {
+  activeLogin = null;
+  const submitBtn = document.getElementById("login-btn");
+  if (submitBtn) submitBtn.disabled = false;
   clearToken();
   // Belt and braces: clear the field on the way out too, so a failed login
   // attempt's password doesn't linger in the form either. The username is
@@ -106,6 +126,7 @@ export function logout() {
 // base64'd byte by byte, which is what the endpoint expects for non-ASCII input
 // and is identical to plain btoa() for pure-ASCII credentials.
 export function basicAuth(identifier, password) {
+  if (identifier.includes(":")) throw new Error("Username/email cannot contain a colon.");
   const bytes = new TextEncoder().encode(`${identifier}:${password}`);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);

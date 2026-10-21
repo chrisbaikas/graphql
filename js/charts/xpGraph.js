@@ -36,25 +36,27 @@ export async function drawXpGraph() {
     // The running total is usually monotonic, so the last point is the largest —
     // but a negative XP correction would break that and push earlier points
     // above the plot area, so take the real maximum.
-    const yMax = Math.max(...points.map((p) => p.y));
+    const yMax = points.reduce((max, p) => Math.max(max, p.y), 0);
+    const yMin = points.reduce((min, p) => Math.min(min, p.y), 0);
     const xSpan = xMax - xMin || 1;
-    const ySpan = yMax || 1;
+    const ySpan = yMax - yMin || 1;
 
     const sx = (x) => pad.left + ((x - xMin) / xSpan) * plotW;
-    const sy = (y) => pad.top + plotH - (y / ySpan) * plotH;
+    const sy = (y) => pad.top + plotH - ((y - yMin) / ySpan) * plotH;
 
     const svg = createSvg(CHART.W, CHART.H);
     svg.setAttribute("aria-label", "Cumulative XP over time");
-    drawAxes(svg);
+    drawAxes(svg, sy(0));
+    box.setAttribute("aria-description", `${formatXp(running)} total XP, ${formatDate(xMin)} to ${formatDate(xMax)}.`);
 
-    // Y axis labels (0 and max)
-    svg.appendChild(svgText("0", {
-      x: pad.left - 6, y: pad.top + plotH,
-      "text-anchor": "end", "dominant-baseline": "middle"
+    // Include negative corrections in the visible range too.
+    svg.appendChild(svgText(formatXp(yMin), {
+      x: pad.left + 4, y: pad.top + plotH - 6,
+      "text-anchor": "start"
     }));
     svg.appendChild(svgText(formatXp(yMax), {
-      x: pad.left - 6, y: pad.top,
-      "text-anchor": "end", "dominant-baseline": "middle"
+      x: pad.left + 4, y: pad.top + 12,
+      "text-anchor": "start"
     }));
 
     // X axis labels (first and last date)

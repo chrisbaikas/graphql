@@ -72,7 +72,7 @@ test("isCursusPath tolerates a missing or non-string path", () => {
 // "projects only" filter, so the queries must NOT narrow to project objects —
 // doing so would silently drop 460 kB of Piscine XP and every exam row.
 test("XP queries fetch path and do not filter to project objects", () => {
-  for (const name of ["XP_TRANSACTIONS", "PROJECT_XP"]) {
+  for (const name of ["XP_TRANSACTIONS"]) {
     const query = QUERIES[name];
     assert.match(query, /type:\s*\{\s*_eq:\s*"xp"\s*\}/, `${name} filters type`);
     assert.ok(query.includes(`path: { _like: "${CURSUS_ROOT}/%" }`),
@@ -92,7 +92,8 @@ test("LEVEL is scoped to the cursus root and selects path", () => {
   assert.match(query, /^\s*path\s*$/m, "LEVEL must select path");
   // A server-side limit would pick a row before the depth filter runs and
   // could hand back a piscine level.
-  assert.ok(!/limit:/.test(query), "LEVEL must not limit before filtering");
+  assert.ok(!/limit:\s*1\b/.test(query), "LEVEL must not choose only one row before filtering");
+  assert.match(query, /offset: \$offset/);
 });
 
 // The audit ratio is deliberately NOT path-scoped: audits are done across the

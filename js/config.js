@@ -1,7 +1,8 @@
 /* ---------------- CONFIG ---------------- */
 
 // Zone01 platform domain. Used for both auth (signin) and GraphQL.
-// Single source of truth: derive URLs from here, never hardcode them elsewhere.
+// API URLs are derived here. If changing domains, also update the static
+// connect-src allowlist in index.html; meta CSP cannot import this module.
 export const DOMAIN = "platform.zone01.gr";
 export const SIGNIN_URL = `https://${DOMAIN}/api/auth/signin`;
 export const GRAPHQL_URL = `https://${DOMAIN}/api/graphql-engine/v1/graphql`;

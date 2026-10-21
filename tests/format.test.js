@@ -74,3 +74,13 @@ test("truncate: longer text is cut and ellipsised to exactly `max` characters", 
 test("truncate: non-string input is coerced rather than throwing", () => {
   assert.equal(truncate(1234567, 4), "123…");
 });
+
+test("negative corrections use the same units, and invalid values have a placeholder", () => {
+  assert.equal(formatXp(-12345),"-12.35 kB");
+  assert.equal(formatXp(-1234567),"-1.23 MB");
+  assert.equal(formatXp(NaN),"—");
+  assert.equal(formatDate("not a date"),"—");
+});
+test("truncation preserves Unicode characters rather than splitting surrogate pairs", () => {
+  assert.equal(truncate("🔑🔑🔑",2),"🔑…");
+});

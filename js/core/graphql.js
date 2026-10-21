@@ -1,91 +1,60 @@
-/* ---------------- GRAPHQL SERVICE ---------------- */
-
+/* Dashboard transport: reject partial data rather than display partial totals. */
 import { GRAPHQL_URL } from "../config.js";
-import { fetchWithTimeout, TimeoutError } from "./http.js";
+import { fetchWithTimeout, readResponse, TimeoutError } from "./http.js";
 import { isTokenExpired } from "./jwt.js";
 import { getToken } from "./storage.js";
-import { endSession, SilentError } from "./session.js";
+import { currentSession, isCurrentSession, sessionSignal, endSession, SilentError } from "./session.js";
+import { isGraphqlEnvelope, graphqlErrorMessage, hasSessionError } from "./graphqlResponse.js";
 
-// The single entry point for every GraphQL call in the app. Sends the query
-// (and optional variables) to the endpoint with Bearer auth and returns the
-// `data` object. On any auth failure it logs the user out; on any other failure
-// it throws an Error with a readable message (callers handle the rejection).
 export async function graphqlRequest(query, variables = {}) {
   const jwt = getToken();
-
-  // No usable token — end the session before we even hit the network.
-  // loadProfile() fires several loaders at once, so on an expired token every
-  // one of them lands here. Only the first should speak: the rest would each
-  // overwrite the login view's single #error line with the same message.
+  const session = currentSession();
+  const ensureCurrent = () => {
+    if (!isCurrentSession(session) || getToken() !== jwt) throw new SilentError("");
+  };
+  const rejectSession = (message) => {
+    endSession(message);
+    throw new SilentError("");
+  };
   if (!jwt || isTokenExpired(jwt)) {
-    const alreadyLoggedOut = !getToken();
-    endSession();
-    throw new SilentError(
-      alreadyLoggedOut ? "" : "Your session has expired. Please log in again."
-    );
+    rejectSession(jwt ? "Your session has expired. Please log in again." : "");
   }
 
   let response;
   try {
     response = await fetchWithTimeout(GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${jwt}`
-      },
+      method: "POST", signal: sessionSignal(),
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jwt}` },
       body: JSON.stringify({ query, variables })
     });
   } catch (err) {
-    // As in login(): a timeout keeps its own message rather than being
-    // reported as an unreachable server.
+    ensureCurrent();
     if (err instanceof TimeoutError) throw err;
+    if (err?.name === "AbortError") throw new Error("The GraphQL request was cancelled.");
     throw new Error("Network error — could not reach the GraphQL server.");
   }
-
-  // The server rejected the token (expired/revoked) — force a logout. As above,
-  // only the first concurrent caller reports it.
-  if (response.status === 401 || response.status === 403) {
-    const alreadyLoggedOut = !getToken();
-    endSession();
-    throw new SilentError(
-      alreadyLoggedOut ? "" : "Your session is no longer valid. Please log in again."
-    );
-  }
+  ensureCurrent();
+  if (response.status === 401) rejectSession("Your session is no longer valid. Please log in again.");
 
   let result;
-  let parsed = true;
   try {
-    result = await response.json();
-  } catch {
-    parsed = false;
+    result = await readResponse(response);
+  } catch (err) {
+    ensureCurrent();
+    if (err instanceof TimeoutError) throw err;
+    if (err?.name === "AbortError") throw new Error("The GraphQL request was cancelled.");
+    // Preserve HTTP status even if an error page is HTML or empty.
+    if (response.ok) throw new Error("Received an invalid JSON response from the GraphQL server.");
   }
+  ensureCurrent();
+  if (hasSessionError(result)) rejectSession("Your session is no longer valid. Please log in again.");
 
-  // Anything other than 401/403 that still failed — a 500, a 502, a 404 — is
-  // reported with its status. Reading such a body as a GraphQL envelope is what
-  // turns a server outage into an unrelated "Cannot read properties of
-  // undefined" further down the call chain.
+  const detail = graphqlErrorMessage(result);
   if (!response.ok) {
-    const detail = parsed && result && typeof result.message === "string"
-      ? `: ${result.message}`
-      : "";
-    throw new Error(
-      `The GraphQL server returned an error (${response.status})${detail}.`
-    );
+    const reason = response.status === 403 ? "Access denied by the GraphQL server" : "The GraphQL server returned an error";
+    throw new Error(`${reason} (${response.status})${detail ? `: ${detail}` : "."}`);
   }
-
-  if (!parsed) {
-    throw new Error("Received an invalid response from the GraphQL server.");
-  }
-
-  // GraphQL reports query/auth errors in a top-level `errors` array (HTTP 200).
-  if (result.errors && result.errors.length) {
-    const message = result.errors.map((e) => e.message).join("; ");
-    // Hasura signals a bad/expired JWT inside the errors array too.
-    if (/jwt|unauthor|token/i.test(message)) {
-      endSession();
-    }
-    throw new Error(message || "GraphQL query failed.");
-  }
-
+  if (!isGraphqlEnvelope(result)) throw new Error("Received an invalid response from the GraphQL server.");
+  if (result.errors?.length) throw new Error(detail || "GraphQL query failed.");
   return result.data;
 }

@@ -29,19 +29,24 @@ export async function drawAuditGraph() {
     ];
 
     const { pad, plotW, plotH } = CHART;
-    const max = Math.max(done, received) || 1;
+    const max = Math.max(0, done, received);
+    const min = Math.min(0, done, received);
+    const span = max - min || 1;
+    const sy = (value) => pad.top + ((max - value) / span) * plotH;
+    const baseline = sy(0);
 
     const svg = createSvg(CHART.W, CHART.H);
     svg.setAttribute("aria-label", "Audit XP done vs received");
-    drawAxes(svg);
+    drawAxes(svg, baseline);
+    box.setAttribute("aria-description", `Done: ${formatXp(done)}. Received: ${formatXp(received)}.`);
 
     // Bars, each with a value label above and a category label below.
     const slot = plotW / bars.length;
     const barW = slot * 0.5;
     bars.forEach((bar, i) => {
-      const h = (bar.value / max) * plotH;
+      const h = Math.abs(sy(bar.value) - baseline);
       const x = pad.left + i * slot + (slot - barW) / 2;
-      const y = pad.top + plotH - h;
+      const y = Math.min(sy(bar.value), baseline);
 
       // The bar grows up from the baseline. `transform-origin` is set as a
       // presentation ATTRIBUTE, not an inline style: `style-src 'self'` in the
@@ -51,15 +56,15 @@ export async function drawAuditGraph() {
       const rect = svgEl("rect", {
         x, y, width: barW, height: h, fill: bar.color, rx: 3,
         class: "bar-grow",
-        "transform-origin": `${x + barW / 2} ${pad.top + plotH}`
+        "transform-origin": `${x + barW / 2} ${baseline}`
       });
-      const share = done + received > 0
+      const share = done >= 0 && received >= 0 && done + received > 0
         ? Math.round((bar.value / (done + received)) * 100)
-        : 0;
-      withTooltip(rect, `${bar.label}: ${formatXp(bar.value)} (${share}%)`);
+        : null;
+      withTooltip(rect, `${bar.label}: ${formatXp(bar.value)}${share === null ? "" : ` (${share}%)`}`);
       svg.appendChild(rect);
       svg.appendChild(svgText(formatXp(bar.value), {
-        x: x + barW / 2, y: y - 5, "text-anchor": "middle", fill: CHART.value
+        x: x + barW / 2, y: Math.max(12, y - 5), "text-anchor": "middle", fill: CHART.value
       }));
       svg.appendChild(svgText(bar.label, {
         x: x + barW / 2, y: pad.top + plotH + 16, "text-anchor": "middle"

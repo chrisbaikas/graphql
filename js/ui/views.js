@@ -9,6 +9,7 @@ import { resetAllOverflow } from "./collapsible.js";
 import { resetPlayground } from "../playground.js";
 import { clearDashboardError } from "./errors.js";
 import { newSession } from "../core/session.js";
+import { closeGraphModal } from "./modal.js";
 
 import { loadUserSection } from "../sections/user.js";
 import { loadXpSection } from "../sections/xp.js";
@@ -24,6 +25,7 @@ export function showLogin() {
   // `display: flex` on #login-view and drop the card out of the centre.
   if (loginView) loginView.style.display = "flex";
   if (dashboardView) dashboardView.style.display = "none";
+  document.getElementById("username")?.focus();
 }
 
 export function showDashboard() {
@@ -32,6 +34,7 @@ export function showDashboard() {
   if (loginView) loginView.style.display = "none";
   if (dashboardView) dashboardView.style.display = "block";
   loadProfile();
+  dashboardView?.querySelector("h1")?.focus();
 }
 
 // Loads every dashboard section. Each section loader handles its own errors so
@@ -44,6 +47,9 @@ export function loadProfile() {
   // A new generation invalidates anything still in flight from a previous load
   // or a previous user, so a late response can no longer paint this dashboard.
   newSession();
+  closeGraphModal(false);
+  resetPlayground();
+  resetProjectsCache();
   clearDashboardError();
   clearProfileCache(); // a reload must re-fetch, not replay the last load
   showLoading();
@@ -72,6 +78,7 @@ export function showLoading() {
     dd.textContent = "Loading…";
   }
   for (const box of profile.querySelectorAll(".graph-box")) {
+    box.removeAttribute("aria-description");
     box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
   }
 }
@@ -86,6 +93,7 @@ export function resetProfile() {
   // Same generation bump on the way out: requests started by the user who is
   // logging out are now stale and will discard their own results.
   newSession();
+  closeGraphModal(false);
   clearProfileCache();
   resetProjectsCache();
   resetPlayground();
@@ -105,6 +113,7 @@ export function resetProfile() {
     dd.textContent = "—";
   }
   for (const box of profile.querySelectorAll(".graph-box")) {
+    box.removeAttribute("aria-description");
     box.innerHTML = '<p class="graph-placeholder">—</p>';
   }
 }

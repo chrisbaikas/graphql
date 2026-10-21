@@ -106,3 +106,29 @@ test("isAbortError recognises both abort flavours and nothing else", () => {
   assert.equal(isAbortError(null), false);
   assert.equal(isAbortError(undefined), false);
 });
+
+test("caller cancellation is preserved and is not reported as a timeout", async () => {
+  const controller = new AbortController();
+  await withFetch((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(options.signal.reason));
+  }), async () => {
+    const pending = fetchWithTimeout("https://example.test/", {signal:controller.signal});
+    controller.abort();
+    await assert.rejects(pending, (err) => err.name === "AbortError" && !(err instanceof TimeoutError));
+  });
+});
+
+test("the request budget still applies after response headers arrive", async () => {
+  const { readResponse } = await import("../js/core/http.js");
+  await withFetch(async (_url, options) => ({
+    json: () => new Promise((_resolve, reject) => {
+      options.signal.addEventListener("abort", () => reject(new DOMException("Body aborted", "AbortError")));
+    })
+  }), async () => {
+    const keepAlive = setInterval(() => {}, 50);
+    try {
+      const response = await fetchWithTimeout("https://example.test/", {}, 5);
+      await assert.rejects(readResponse(response), TimeoutError);
+    } finally { clearInterval(keepAlive); }
+  });
+});

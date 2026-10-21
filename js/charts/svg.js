@@ -44,14 +44,14 @@ CHART.plotH = CHART.H - CHART.pad.top - CHART.pad.bottom;
 
 // Draw the L-shaped X/Y axes into an existing <svg>. Returns nothing — callers
 // add their own data marks and labels on top.
-export function drawAxes(svg) {
+export function drawAxes(svg, baselineY = CHART.pad.top + CHART.plotH) {
   const { pad, plotW, plotH, axis } = CHART;
   svg.appendChild(svgEl("line", {
     x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
     stroke: axis, "stroke-width": 1
   }));
   svg.appendChild(svgEl("line", {
-    x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
+    x1: pad.left, y1: baselineY, x2: pad.left + plotW, y2: baselineY,
     stroke: axis, "stroke-width": 1
   }));
 }

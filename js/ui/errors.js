@@ -21,7 +21,7 @@ export function reportSectionError(prefix, err) {
 export function showError(message) {
   if (!message) return;
   const dashboardView = document.getElementById("dashboard-view");
-  const onDashboard = dashboardView && dashboardView.style.display !== "none";
+  const onDashboard = dashboardView && dashboardView.style.display === "block";
 
   if (onDashboard) {
     const box = document.getElementById("dashboard-error");

@@ -10,6 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { newSession } from "../js/core/session.js";
 import { CURSUS_ROOT } from "../js/config.js";
 
 // core/graphql.js reads a JWT from sessionStorage, which does not exist under
@@ -21,7 +22,7 @@ globalThis.sessionStorage = {
   removeItem(k) { delete this._v[k]; }
 };
 
-const { fetchXpBreakdown, fetchTotalXp, fetchLevel, clearProfileCache } =
+const { fetchXpBreakdown, fetchTotalXp, fetchLevel, fetchProjectXp, fetchSkills, fetchAuditTotals, clearProfileCache } =
   await import("../js/data/profile.js");
 
 // A JWT that is structurally valid and expires far in the future, so
@@ -35,11 +36,11 @@ function makeToken() {
 // Serve a fixed `transaction` array to whichever query is sent.
 function stubTransactions(rowsFor) {
   globalThis.fetch = async (_url, options) => {
-    const { query } = JSON.parse(options.body);
+    const { query, variables } = JSON.parse(options.body);
     return {
       ok: true,
       status: 200,
-      json: async () => ({ data: { transaction: rowsFor(query) } })
+      json: async () => ({ data: { transaction: rowsFor(query).map((row, i) => ({id: i + 1, createdAt: "2026-01-01T00:00:00Z", ...row})).slice(variables.offset, variables.offset + variables.limit) } })
     };
   };
 }
@@ -125,4 +126,96 @@ test("fetchLevel takes the max cursus level, not a piscine's", async () => {
 test("fetchLevel returns null when there are no level rows", async () => {
   stubTransactions(() => []);
   assert.equal(await fetchLevel(), null);
+});
+
+
+test("project XP groups by object ID while preserving duplicate display names", async () => {
+  stubTransactions(() => [
+    { amount: 100, path: `${CURSUS_ROOT}/a`, object: {id: 1, name: "Same"} },
+    { amount: 50, path: `${CURSUS_ROOT}/a`, object: {id: 1, name: "Same"} },
+    { amount: 200, path: `${CURSUS_ROOT}/b`, object: {id: 2, name: "Same"} },
+    { amount: 70, path: `${CURSUS_ROOT}/c`, objectId: 3, object: null },
+    { amount: 900, path: `${CURSUS_ROOT}/piscine-rust/quest-01`, objectId: 4 }
+  ]);
+  assert.deepEqual(await fetchProjectXp(), [
+    {name: "Same", amount: 200}, {name: "Same", amount: 150}, {name: "C", amount: 70}
+  ]);
+});
+
+test("shared XP consumers reuse one paginated request sequence until the cache is cleared", async () => {
+  let requests = 0;
+  stubTransactions(() => { requests++; return [
+    {amount: 100, path: `${CURSUS_ROOT}/forum`, createdAt: "2026-01-01T00:00:00Z"}
+  ]; });
+  await Promise.all([fetchTotalXp(), fetchXpBreakdown()]);
+  assert.equal(requests, 2);
+  clearProfileCache();
+  await fetchTotalXp();
+  assert.equal(requests, 4);
+});
+
+test("skills use each type's highest amount rather than summing improvements", async () => {
+  stubTransactions(() => [
+    {type: "skill_go", amount: 75}, {type: "skill_js", amount: 60}, {type: "skill_go", amount: 30}
+  ]);
+  assert.deepEqual(await fetchSkills(), [{name:"Go",amount:75},{name:"Js",amount:60}]);
+});
+
+test("audit totals add each transaction only to its own direction", async () => {
+  stubTransactions(() => [{type:"up",amount:100},{type:"up",amount:50},{type:"down",amount:200}]);
+  assert.deepEqual(await fetchAuditTotals(), {done:150,received:200});
+});
+
+test("pagination continues across short server-capped pages, with stable offsets",async()=>{
+  const offsets=[];
+  globalThis.fetch=async(_url,options)=>{
+    const {variables}=JSON.parse(options.body); offsets.push(variables.offset);
+    const rows=[1,2,3].slice(variables.offset,variables.offset+1).map((id)=>({id,amount:id*100,path:`${CURSUS_ROOT}/p${id}`,createdAt:"2026-01-01T00:00:00Z"}));
+    return {ok:true,status:200,json:async()=>({data:{transaction:rows}})};
+  };
+  assert.equal(await fetchTotalXp(),600);
+  assert.deepEqual(offsets,[0,1,2,3]);
+});
+test("missing row arrays and nonnumeric amounts cannot silently become zero totals",async()=>{
+  globalThis.fetch=async()=>({ok:true,status:200,json:async()=>({data:{}})});
+  await assert.rejects(fetchTotalXp(),/Invalid transaction data/);
+  clearProfileCache();
+  stubTransactions(()=>[{amount:"100",path:`${CURSUS_ROOT}/forum`}]);
+  await assert.rejects(fetchTotalXp(),/Invalid transaction amount/);
+});
+test("invalid dates are reported before rendering an SVG with NaN coordinates",async()=>{
+  stubTransactions(()=>[{amount:100,path:`${CURSUS_ROOT}/forum`,createdAt:"invalid"}]);
+  await assert.rejects(fetchTotalXp(),/Invalid XP date/);
+});
+test("a rejected promise is evicted so retry can succeed",async()=>{
+  stubTransactions(()=>{throw new Error("fixture outage");});
+  await assert.rejects(fetchTotalXp());
+  stubTransactions(()=>[{amount:123,path:`${CURSUS_ROOT}/forum`}]);
+  assert.equal(await fetchTotalXp(),123);
+});
+test("XP card, line and grouped bars share one complete snapshot",async()=>{
+  let requests=0;
+  stubTransactions(()=>{requests++;return[{amount:123,path:`${CURSUS_ROOT}/forum`,objectId:1,object:{id:1,name:"forum"}}];});
+  const [total,projects]=await Promise.all([fetchTotalXp(),fetchProjectXp()]);
+  assert.equal(total,123);
+  assert.deepEqual(projects,[{name:"forum",amount:123}]);
+  assert.equal(requests,2); // one data page and one terminal empty page
+});
+test("a repeated stable row ID rejects instead of double-counting an ignored offset",async()=>{
+  stubTransactions(()=>[{id:1,amount:123,path:`${CURSUS_ROOT}/forum`},{id:1,amount:123,path:`${CURSUS_ROOT}/forum`}]);
+  await assert.rejects(fetchTotalXp(),/data changed/);
+});
+
+
+test("a generation change invalidates resolved data even without an explicit cache clear",async()=>{
+  let requests=0;
+  stubTransactions(()=>{requests++;return[{amount:123,path:`${CURSUS_ROOT}/forum`}];});
+  await fetchTotalXp();
+  newSession();
+  await fetchTotalXp();
+  assert.equal(requests,4);
+});
+test("null amounts contribute zero without producing NaN",async()=>{
+  stubTransactions(()=>[{amount:null,path:`${CURSUS_ROOT}/forum`}]);
+  assert.equal(await fetchTotalXp(),0);
 });

@@ -19,8 +19,7 @@
                  style-src 'self';
                  connect-src 'self' https://platform.zone01.gr;
                  img-src 'self' data:;
-                 form-action 'self';
-                 frame-ancestors 'none'">
+                 form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
 
   <title>GraphQL Profile - Zone01 stats dashboard</title>
@@ -38,13 +37,14 @@
   <link rel="stylesheet" href="./css/style.css?v=2">
 </head>
 <body>
+  <main id="app">
 
   <!-- LOGIN VIEW -->
   <section id="login-view">
     <div class="login-card">
       <h1>Login</h1>
 
-      <form id="login-form">
+      <form id="login-form" method="post">
         <label for="username">Username or email</label>
         <input type="text" id="username" name="username"
                placeholder="username or email" autocomplete="username" required>
@@ -53,9 +53,10 @@
         <input type="password" id="password" name="password"
                placeholder="password" autocomplete="current-password" required>
 
-        <button type="submit" id="login-btn">Login</button>
+        <button type="submit" id="login-btn" disabled>Login</button>
       </form>
 
+      <noscript><p>JavaScript is required to sign in. Serve this page over HTTP.</p></noscript>
       <p id="error" class="error" role="alert"></p>
     </div>
   </section>
@@ -67,7 +68,7 @@
   <section id="dashboard-view" class="view-hidden">
     <header class="dashboard-header">
       <span class="header-spacer"></span>
-      <h1>Dashboard</h1>
+      <h1 tabindex="-1">Dashboard</h1>
       <button id="logout-btn">Logout</button>
     </header>
 
@@ -194,21 +195,22 @@
 
         <p class="hint">
           Run any query against the platform endpoint as the logged-in user.
+          Examples return one page; use the limit/offset variables to inspect more rows.
           <kbd>Ctrl</kbd>+<kbd>Enter</kbd> runs it.
         </p>
 
         <div class="gql-examples">
           <span class="hint">Examples:</span>
           <button type="button" class="link-btn gql-example"
-                  data-query="{ user { id login } }">User</button>
+                  data-query="USER">User</button>
           <button type="button" class="link-btn gql-example"
-                  data-query="{ transaction(where: { type: { _eq: &quot;xp&quot; }, path: { _like: &quot;/athens/div-01/%&quot; } } order_by: { createdAt: desc }) { amount path createdAt } }">Total XP</button>
+                  data-query="XP_TRANSACTIONS">Total XP</button>
           <button type="button" class="link-btn gql-example"
-                  data-query="{ transaction(where: { type: { _eq: &quot;level&quot; }, path: { _like: &quot;/athens/div-01/%&quot; } } order_by: { amount: desc }) { amount path } }">Level</button>
+                  data-query="LEVEL">Level</button>
           <button type="button" class="link-btn gql-example"
-                  data-query="{ transaction(where: { type: { _in: [&quot;up&quot;, &quot;down&quot;] } }) { type amount } }">Audits</button>
+                  data-query="AUDIT_TOTALS">Audits</button>
           <button type="button" class="link-btn gql-example"
-                  data-query="{ result(where: { path: { _like: &quot;/athens/div-01/%&quot; }, object: { type: { _eq: &quot;project&quot; } } } order_by: { createdAt: desc } limit: 5) { grade object { name type } } }">Recent projects</button>
+                  data-query="RECENT_PROJECTS">Recent projects</button>
         </div>
 
         <label class="gql-label" for="gql-query">Query</label>
@@ -232,6 +234,8 @@
       </details>
     </div>
   </section>
+
+  </main>
 
   <!-- Graph zoom overlay (lightbox) -->
   <div id="graph-modal" class="modal" hidden>
