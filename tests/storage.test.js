@@ -24,7 +24,9 @@ test("startup removes rather than migrates an old credential", () => {
   assert.equal(getToken(), null);
 });
 test("storage access errors fail gracefully and do not fall back to localStorage", () => {
-  const denied = () => { throw new Error("Storage denied"); };
+  const denied = () => {
+    throw new Error("Storage denied");
+  };
   globalThis.sessionStorage = { getItem: denied, setItem: denied, removeItem: denied };
   globalThis.localStorage = { removeItem: denied };
   assert.equal(getToken(), null);

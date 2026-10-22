@@ -184,9 +184,8 @@ button:disabled {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }
@@ -484,8 +483,9 @@ kbd {
   background: #0f172a;
   border-radius: 6px;
   padding: 8px;
-  cursor: zoom-in;
 }
+
+.graph-box[role="button"] { cursor: zoom-in; }
 
 /* Make SVGs scale to their container while keeping aspect ratio. */
 .graph-box svg {
@@ -503,8 +503,8 @@ kbd {
 /* ---- Graph entrance animations ----
    Each graph is rebuilt from scratch on every render, so these run once as the
    new nodes are inserted — there is no state to reset and no JS involved. The
-   reduced-motion rule above already collapses every animation-duration to
-   0.01ms, so a user who asked for less motion simply sees the final frame. */
+   reduced-motion rule above removes animations, showing the final frame
+   immediately without waiting for any animation delay. */
 
 /* Vertical bars (audit graph) grow up from the baseline. */
 .bar-grow {
@@ -591,7 +591,7 @@ kbd {
   position: relative;
   background: #1e293b;
   border-radius: 8px;
-  padding: 24px;
+  padding: 48px 24px 24px;
   width: min(calc(100vw - 32px), 900px);
   max-height: calc(100dvh - 32px);
   overflow: auto;

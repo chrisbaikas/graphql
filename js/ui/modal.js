@@ -61,7 +61,7 @@ export function setupGraphModal() {
   // drift apart or depend on listener registration order.
   document.addEventListener("keydown", (e) => {
     if (modal.hidden) {
-      // Closed: the graph boxes are focusable (tabindex in the markup), so
+      // Loaded graph boxes are focusable, so
       // Enter/Space must open them — a click handler alone would leave the
       // zoom mouse-only.
       if (e.key !== "Enter" && e.key !== " ") return;

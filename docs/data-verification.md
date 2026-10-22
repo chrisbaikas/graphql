@@ -19,6 +19,65 @@ returns your identity before comparing data. XP uses decimal units:
 `1234567` bytes → `1.23 MB`, `12345` → `12.35 kB`, values below 1000 → bytes.
 Dates display as DD/MM/YYYY in the browser's local timezone.
 
+## Platform assumptions to verify before closing T13
+
+- [ ] Confirm the account's main cursus really uses `/athens/div-01`. The
+      requirements do not mandate the Athens path; the configured scope came
+      from the earlier platform XP-board comparison (commit `3ea3afa`). USER
+      currently returns only `id` and `login`; the other queries already filter
+      XP, level and recent results by the configured root. These responses cannot
+      deterministically discover another account's main cursus. Keep this
+      configuration until live event/schema evidence supports a different rule;
+      an empty filtered result alone does not establish that the account has no XP.
+- [ ] Confirm the platform's row permissions return only the authenticated user's
+      data. Compare USER identity with the current account; inspect `userId` on
+      the same transaction/result rows in the platform GraphiQL. Production
+      queries rely on server permissions rather than an explicit user-ID filter.
+      Do not query arbitrary other users as a substitute for permission evidence.
+- [ ] Inspect the real output scalar types and JSON representations: `user.id`,
+      `transaction.id`, `transaction.objectId`, `transaction.amount`, `object.id`,
+      `result.id` and `result.grade`. Include XP, level, skills and up/down audit
+      transactions. The query variables' `Int` declarations describe inputs and
+      do not prove output types. Record scalar names and `typeof` values without
+      recording any token or password.
+
+Use the authenticated schema explorer, or the metadata query below if
+introspection is enabled. If a type name differs, inspect the actual return type
+in the explorer. A denied introspection query leaves this check open.
+
+```graphql
+query AuditOutputTypes {
+  userType: __type(name: "user") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+  transactionType: __type(name: "transaction") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+  resultType: __type(name: "result") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+  objectType: __type(name: "object") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+}
+```
+
+Strict validation is unchanged: paginated row/user IDs must be integer numbers;
+transaction amounts must be finite numbers (`null` contributes zero). Numeric
+grades determine pass/fail; null/non-numeric grades display pending. No schema
+snapshot or authenticated session was available in this review, and the linked
+platform GraphiQL page could not be retrieved by the browsing tool. An anonymous
+metadata POST returned HTTP 200 with `data.__type: null` for `transaction`; this
+does not reveal the authenticated role's output types. The
+[official database description](https://github.com/01-edu/public/blob/master/docs/db/database-structure.md)
+lists fields without specifying their GraphQL scalar serialization. It also
+describes users belonging to multiple events, so event membership alone does not
+select a main cursus. The requirements' numeric examples support the current
+assumption but do not prove this platform's serialization. Do not add permissive
+string coercion without evidence from the real schema and response bodies.
+
+## Pagination
+
 All list queries below have `$limit` / `$offset` variables with defaults 500/0.
 Run the first page, then repeat with `{ "offset": N, "limit": 500 }`, where N
 is the **number of raw rows already received**, until an empty page is returned.
@@ -229,6 +288,9 @@ It uses the same cached XP rows, without another query or a different snapshot.
 
 ## Session and browser checks before audit
 
+For reproducible synthetic regressions, see [browser-verification.md](browser-verification.md).
+They do not replace the real-account checkboxes below.
+
 - [ ] Valid username/password and email/password both reach the dashboard.
 - [ ] Wrong password shows Invalid credentials and stays on login.
 - [ ] Refresh preserves the session; `sessionStorage.token` has no wrapper quotes.
@@ -243,6 +305,10 @@ It uses the same cached XP rows, without another query or a different snapshot.
       datasets need 11 POSTs; larger datasets need more. XP and audit consumers
       share promises. Playground requests are additional.
 - [ ] Keyboard zoom / Escape / focus return and Show more controls work.
+- [ ] Only rendered graphs have zoom button semantics and Tab stops; loading,
+      empty and error placeholders do not. Check Enter and Space on loaded charts.
+- [ ] Chart and modal labels remain readable at 320/375/768/1280/1920px, with
+      no clipped labels or page overflow. Reduced-motion dots appear immediately.
 - [ ] At 360px and desktop widths, content fits without horizontal overflow.
 - [ ] Playground runs valid queries, displays malformed-query errors, rejects
       invalid/non-object variables, and supports Ctrl/Cmd+Enter.
@@ -252,6 +318,7 @@ It uses the same cached XP rows, without another query or a different snapshot.
 | Date | Environment | Result |
 | --- | --- | --- |
 | 2026-10-22 | Local Chromium, intercepted synthetic API responses | Eleven scenario groups: initial/login failures/success, UTF-8 credentials, server/network/query errors, timeout recovery (shortened test budget), paginated totals, three SVGs, empty/single/negative/zero/large/Unicode datasets, modal keyboard/inert/focus cleanup, A→B and pending-request races, playground envelope/variables/shortcuts, refresh and simulated project-subpath hosting. Widths 320/360/560/1280px. No unexpected console errors, CSP violations or missing local assets. A real streamed body timeout was also verified against a temporary local HTTP server. This does not prove live schema, real source data or platform CORS. |
+| 2026-10-22, independent-audit fixes | Chromium + Firefox, committed `tests/browser/run.cjs` | All 14 scenario groups pass, including the original eleven, responsive chart/modal labels at 320/375/768/1280/1920px, placeholder semantics, focus/reset, reduced motion and real streamed body timeout. Synthetic responses still do not close T13. |
 | Pending | Real Zone01 account + independent platform GraphiQL | Complete all live checks above, then update T13. |
 | Pending | Public HTTPS deployment | Complete T12 and record the URL in README.md. |
 

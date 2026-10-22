@@ -52,9 +52,10 @@ js/
     user.js xp.js audit.js recent.js skills.js stats.js
   charts/
     svg.js          # hand-written SVG primitives + shared geometry
+    display.js      # responsive chart mounting + placeholder/zoom semantics
     xpGraph.js auditGraph.js projectsGraph.js
   ui/
-    views.js        # showLogin/showDashboard/loadProfile/resetProfile
+    views.js        # showLogin/showDashboard/resetProfile; private loadProfile
     errors.js       # showError, reportSectionError, clearDashboardError
     collapsible.js  # generic "top N + Show more" behaviour
     modal.js        # graph zoom lightbox
@@ -62,6 +63,8 @@ js/
     format.js       # formatXp, formatDate, formatSkillName, truncate
 Makefile            # `make run` -> python3 -m http.server
 docs/               # instructions, audit criteria, ticket tracker
+tests/              # dependency-free Node helper/data/transport tests
+tests/browser/      # optional browser regression harness (external Playwright)
 .github/prompts/    # self-audit prompt
 ```
 
@@ -102,6 +105,7 @@ syntax — note `node --check` needs the module flag for these files:
 
 ```bash
 make check  # tests + module syntax checks; fails immediately on errors
+make test-browser  # optional external Playwright; docs/browser-verification.md
 ```
 
 ## Key facts in code

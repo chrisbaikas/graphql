@@ -1,4 +1,5 @@
 /* Login/dashboard routing and shared loading/logout reset. */
+import { showGraphPlaceholder } from "../charts/display.js";
 import { clearProfileCache } from "../data/profile.js";
 import { resetProjectsCache } from "../charts/projectsGraph.js";
 import { resetAllOverflow } from "./collapsible.js";
@@ -74,10 +75,6 @@ function renderPlaceholders(text) {
     value.textContent = text;
   }
   for (const box of profile.querySelectorAll(".graph-box")) {
-    const message = document.createElement("p");
-    message.className = "graph-placeholder";
-    message.textContent = text;
-    box.removeAttribute("aria-description");
-    box.replaceChildren(message);
+    showGraphPlaceholder(box, text);
   }
 }

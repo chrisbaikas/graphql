@@ -6,7 +6,7 @@ import { newSession } from "../js/core/session.js";
 import { fakeDocument, memoryStorage, tokenFor, deferred } from "./helpers.js";
 
 let el;
-const signin = (status, body) => ({ok: status === 200, status, text: async () => body});
+const signin = (status, body) => ({ ok: status === 200, status, text: async () => body });
 test.beforeEach(() => {
   globalThis.sessionStorage = memoryStorage();
   globalThis.localStorage = memoryStorage();
@@ -15,7 +15,12 @@ test.beforeEach(() => {
   el("username").value = "student@example.com";
   el("password").value = "κωδικός🔑";
 });
-for (const [status, message] of [[401,/Invalid credentials/],[403,/Invalid credentials/],[429,/429/],[500,/500/]]) {
+for (const [status, message] of [
+  [401, /Invalid credentials/],
+  [403, /Invalid credentials/],
+  [429, /429/],
+  [500, /500/]
+]) {
   test(`login status ${status} restores the button and reports the right reason`, async () => {
     globalThis.fetch = async () => signin(status, "");
     await login();
@@ -30,7 +35,12 @@ test("empty credentials are rejected before any request", async () => {
   await login();
   assert.match(el("error").textContent, /enter your username/);
 });
-for (const body of ["", "{}", "not-a-jwt", `e30.${Buffer.from('{"exp":1}').toString('base64url')}.sig`]) {
+for (const body of [
+  "",
+  "{}",
+  "not-a-jwt",
+  `e30.${Buffer.from('{"exp":1}').toString("base64url")}.sig`
+]) {
   test(`invalid signin body ${JSON.stringify(body)} is never stored`, async () => {
     globalThis.fetch = async () => signin(200, body);
     await login();
@@ -40,16 +50,25 @@ for (const body of ["", "{}", "not-a-jwt", `e30.${Buffer.from('{"exp":1}').toStr
   });
 }
 test("network errors and body timeouts remain distinguishable", async () => {
-  globalThis.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  globalThis.fetch = async () => {
+    throw new TypeError("Failed to fetch");
+  };
   await login();
   assert.match(el("error").textContent, /Network error/);
-  globalThis.fetch = async () => ({ok:true,status:200,text:async()=>{throw new DOMException("timeout","TimeoutError");}});
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => {
+      throw new DOMException("timeout", "TimeoutError");
+    }
+  });
   await login();
   assert.match(el("error").textContent, /timed out/);
   assert.equal(el("login-btn").disabled, false);
 });
 test("logout releases an old login, whose finally cannot unlock a newer attempt", async () => {
-  const old = deferred(), newer = deferred();
+  const old = deferred(),
+    newer = deferred();
   globalThis.fetch = () => old.promise;
   const pending = login();
   logout();
@@ -68,7 +87,10 @@ test("logout releases an old login, whose finally cannot unlock a newer attempt"
 test("repeated login while pending sends exactly one request", async () => {
   let calls = 0;
   const result = deferred();
-  globalThis.fetch = () => { calls++; return result.promise; };
+  globalThis.fetch = () => {
+    calls++;
+    return result.promise;
+  };
   const first = login();
   await login();
   assert.equal(calls, 1);

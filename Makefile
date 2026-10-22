@@ -12,5 +12,10 @@ test:
 
 check: test
 	@for file in js/*.js js/*/*.js; do node --input-type=module --check < "$$file" || exit 1; done
+	@node --check tests/browser/run.cjs
 
-.PHONY: run serve test check
+# Optional dev tool; see docs/browser-verification.md for external installation.
+test-browser:
+	node tests/browser/run.cjs
+
+.PHONY: run serve test check test-browser

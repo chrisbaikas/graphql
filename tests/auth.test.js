@@ -51,7 +51,6 @@ test("basicAuth: a colon in the password is not ambiguous", () => {
   const credential = basicAuth("student", "a:b:c");
   const decoded = decodeBasic(credential);
   assert.equal(decoded, "student:a:b:c");
-  assert.equal(decoded.slice(decoded.indexOf(":") + 1), "a:b:c");
 });
 
 test("basicAuth: empty password still produces a valid credential", () => {

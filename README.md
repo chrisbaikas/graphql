@@ -62,6 +62,10 @@ make check  # tests + module syntax
 node --test tests/*.test.js
 ```
 
+Optional Chromium/Firefox regressions: `make test-browser`, using Playwright
+installed outside the repository. See [browser verification](docs/browser-verification.md)
+for exact setup, commands and the 14 covered scenario groups.
+
 Requires Node 22.7 or newer for native ES module detection without package
 metadata. The tests import the same modules the browser loads and stub API
 responses; they do not contact the platform or require credentials.
@@ -90,9 +94,9 @@ large profiles use more. Playground examples show one page by default and
 accept `limit`/`offset` variables. HTTP 403/query permission errors preserve the
 session; HTTP 401/explicit JWT errors end it.
 
-Use a current browser with native ES modules, `AbortSignal.timeout()` and
-`AbortSignal.any()`. All three request paths have a 12-second budget, including
-body reads; logout aborts pending work. Live schema/data and hosted CORS still
+Use a current browser with native ES modules, `AbortSignal.timeout()`,
+`AbortSignal.any()` and `ResizeObserver`. All three request paths have a 12-second
+budget, including body reads; logout aborts pending work. Live schema/data and hosted CORS still
 need the checks in the linked tracker.
 
 ## Deployment

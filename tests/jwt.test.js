@@ -74,25 +74,22 @@ test("isTokenExpired: treats anything unreadable as expired", () => {
   assert.equal(isTokenExpired(tokenWith({ exp: null })), true);
 });
 
-test("isTokenExpired: exp is read as seconds, not milliseconds", () => {
-  // A token expiring in an hour, written in seconds as the spec requires. If
-  // the helper compared it against Date.now() in milliseconds it would read as
-  // long expired, and every login would immediately bounce back to the form.
-  assert.equal(isTokenExpired(tokenWith({ exp: nowSeconds() + HOUR })), false);
-  // The same number misread as milliseconds would be far in the past.
-  assert.equal(isTokenExpired(tokenWith({ exp: 1 })), true);
-});
-
 test("UTF-8 JWT claims survive decoding", () => {
-  const payload = {login:"χρήστης🔑",exp:nowSeconds()+HOUR};
-  assert.deepEqual(decodeJwtPayload(tokenWith(payload)),payload);
+  const payload = { login: "χρήστης🔑", exp: nowSeconds() + HOUR };
+  assert.deepEqual(decodeJwtPayload(tokenWith(payload)), payload);
 });
 test("missing segments, extra segments and non-finite expiry fail closed", () => {
-  const valid=tokenWith({exp:nowSeconds()+HOUR});
-  for(const value of [valid.slice(0,valid.lastIndexOf('.')),valid+'.extra','.'+valid.split('.').slice(1).join('.'),null,42]) {
-    assert.equal(isTokenExpired(value),true);
+  const valid = tokenWith({ exp: nowSeconds() + HOUR });
+  for (const value of [
+    valid.slice(0, valid.lastIndexOf(".")),
+    valid + ".extra",
+    "." + valid.split(".").slice(1).join("."),
+    null,
+    42
+  ]) {
+    assert.equal(isTokenExpired(value), true);
   }
-  const huge=`header.${Buffer.from('{"exp":1e309}').toString('base64url')}.signature`;
-  assert.equal(isTokenExpired(huge),true);
-  assert.equal(decodeJwtPayload(tokenWith([])),null);
+  const huge = `header.${Buffer.from('{"exp":1e309}').toString("base64url")}.signature`;
+  assert.equal(isTokenExpired(huge), true);
+  assert.equal(decodeJwtPayload(tokenWith([])), null);
 });

@@ -666,6 +666,9 @@ This is the step an auditor will literally perform, so do it first ourselves.
       remove stale account totals and unscoped aggregate comparisons
 - [ ] Run those queries in the **platform's** GraphiQL and compare
       *(the only step that needs live credentials)*
+- [ ] Verify the account's cursus root, output numeric scalar types/JSON values,
+      and authenticated user row permissions using the added platform checks
+      in [data-verification.md](./data-verification.md).
 
 ### Acceptance criteria
 - [x] No discrepancy between the UI's own values (cards vs graphs vs arithmetic)
@@ -1094,3 +1097,50 @@ SVGs, empty/negative/large datasets, mobile layout, keyboard modal and subpaths.
 All CSS selectors match across the tested UI states, DOM ID references resolve,
 and all 28 production modules are reachable without circular imports.
 The real-account and public-host verification tasks remain T13 and T12.
+
+## Independent-audit fixes — 2026-10-22
+
+- **Low 1 — FIXED:** SVG drawing uses the available container width up to the
+  existing 480-unit desktop size, with ResizeObserver redraws and no refetches.
+  Mobile labels keep an effective 11px font; long project names are shortened
+  to fit rather than compressed, while full names remain in tooltips and chart
+  descriptions. Modal top padding keeps its close control clear of the plot.
+- **Low 2 — FIXED:** only mounted SVG charts receive zoom button role, tabindex,
+  label and cursor. Loading/empty/error/reset paths remove these attributes and
+  disconnect resize observation. Mouse, Enter/Space, Escape, focus rings and
+  restoration remain covered by browser tests.
+- **Low 3 — DEFERRED TO T13:** retain `/athens/div-01`. History explains its XP
+  scope; current authenticated query results cannot select another main cursus
+  deterministically. Requirements do not mandate Athens. Check the account's
+  actual cursus and server row permissions in the expanded T13 procedure.
+- **Low 4 — DEFERRED TO T13:** strict ID/amount checks remain unchanged. Public
+  database documentation does not establish scalar serialization, and anonymous
+  transaction introspection returned `__type: null`. Check authenticated output
+  types and real JSON before considering any normalization. Four new Node cases
+  pin rejection of string/fractional IDs and string skill/audit amounts.
+- **Low 5 — FIXED:** committed the portable browser harness and
+  [exact setup/commands](./browser-verification.md). `make test-browser` uses
+  optional externally installed Playwright, a temporary loopback server and
+  synthetic API fixtures. No application dependencies, generated assets or
+  credentials are added. All original eleven groups plus three new groups cover
+  responsive rendering, placeholder/reset semantics, sections, modal and a real
+  stalled HTTP body.
+- **Nits — FIXED:** renamed `.github/prompts/pr-audit.prompt.md` without the leading
+  space (no references required updating); corrected AGENTS layout/private load
+  documentation; normalized compressed test formatting; removed the self-slicing
+  assertion and one duplicate JWT test. Reduced motion now removes animations
+  and delays. Explicit credential-file ignore rules replace broad source-hiding
+  wildcards; `token.js` and `js/core/token.js` remain visible to Git.
+- **Six test-used exports — LEFT AS-IS:** Basic auth/token/JWT/path/variables
+  helpers are meaningful pure-logic boundaries; `runPlaygroundQuery` supports
+  nontrivial full-envelope/session integration tests. No exports were added
+  solely for trivial implementation-detail assertions.
+
+Verification: **123 Node cases, zero failures**, repeated three times
+(120 previous cases − one duplicate JWT test + four numeric-validation cases).
+`make test`, `make check`, production/test/harness syntax and unchanged-query
+checks pass. **14 groups pass in Chromium and Firefox**, including effective
+font/bounds checks in dashboard and modal at 320/375/768/1280/1920px and keyboard
+focus. No unexpected page/console errors, CSP violations or missing assets;
+injected transport failures are identified explicitly by the harness. Screenshots
+used for visual inspection stay outside the repository. **T12 and T13 remain open.**

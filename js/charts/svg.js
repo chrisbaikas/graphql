@@ -39,12 +39,11 @@ export const CHART = {
   label: "#94a3b8",
   value: "#e2e8f0"
 };
-CHART.plotW = CHART.W - CHART.pad.left - CHART.pad.right;
 CHART.plotH = CHART.H - CHART.pad.top - CHART.pad.bottom;
 
 // The horizontal axis follows zero, which may be inside the plot for negative XP.
-export function drawAxes(svg, baselineY) {
-  const { pad, plotW, plotH, axis } = CHART;
+export function drawAxes(svg, baselineY, plotW) {
+  const { pad, plotH, axis } = CHART;
   svg.appendChild(svgEl("line", {
     x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
     stroke: axis, "stroke-width": 1
