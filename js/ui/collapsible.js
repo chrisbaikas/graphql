@@ -10,7 +10,7 @@
 
 import { COLLAPSIBLE_LISTS } from "../config.js";
 
-export function setExpanded(listId, toggleId, expanded, hiddenCount) {
+function setExpanded(listId, toggleId, expanded, hiddenCount) {
   const listEl = document.getElementById(listId);
   const toggle = document.getElementById(toggleId);
   if (!listEl || !toggle) return;

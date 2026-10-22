@@ -2,16 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { graphqlRequest } from "../js/core/graphql.js";
 import { currentSession, newSession, registerSessionEnd, SilentError } from "../js/core/session.js";
-import { deferred } from "./helpers.js";
+import { deferred, memoryStorage, tokenFor as token } from "./helpers.js";
 import { getToken, setToken, clearToken } from "../js/core/storage.js";
 
-const values = new Map();
-globalThis.sessionStorage = {
-  getItem: (key) => values.get(key) ?? null,
-  setItem: (key, value) => values.set(key, value),
-  removeItem: (key) => values.delete(key)
-};
-const token = (sub) => `e30.${Buffer.from(JSON.stringify({sub, exp: Date.now() / 1000 + 3600})).toString("base64url")}.sig`;
+globalThis.sessionStorage = memoryStorage();
 let ended;
 test.beforeEach(() => {
   newSession();
@@ -33,17 +27,16 @@ test("GraphQL sends Bearer auth and variables, and returns data", async () => {
 
 for (const mode of ["headers", "body"]) {
   test(`old ${mode} response cannot log out the next user`, async () => {
-    let resolve;
-    const waiting = new Promise((r) => { resolve = r; });
+    const waiting = deferred();
     const startedBody = deferred();
     globalThis.fetch = mode === "headers"
-      ? () => waiting
-      : async () => ({ ok: true, status: 200, json: () => { startedBody.resolve(); return waiting; } });
+      ? () => waiting.promise
+      : async () => ({ ok: true, status: 200, json: () => { startedBody.resolve(); return waiting.promise; } });
     const pending = graphqlRequest("{ user { id } }");
     if (mode === "body") await startedBody.promise;
     const nextToken = token("B");
     newSession(); setToken(nextToken);
-    resolve(mode === "headers" ? response({}, 401) : {errors:[{message:"JWT expired"}]});
+    waiting.resolve(mode === "headers" ? response({}, 401) : {errors:[{message:"JWT expired"}]});
     await assert.rejects(pending, SilentError);
     assert.equal(getToken(), nextToken);
     assert.deepEqual(ended, []);

@@ -11,16 +11,7 @@ body {
 }
 
 section {
-  max-width: 420px;
   margin: auto;
-}
-
-input {
-  display: block;
-  box-sizing: border-box;
-  margin: 10px 0;
-  padding: 10px;
-  width: 100%;
 }
 
 /* One visible focus ring for every interactive element — keyboard users need
@@ -52,13 +43,8 @@ button:disabled {
 }
 
 /* ---- Login view: centred card ---- */
-/* The login view centres its card on the whole screen, so it opts out of the
-   generic `section` box: `max-width: none` lets it span the full width (the
-   card keeps its own 360px cap), and the height is the viewport minus the
-   body's 20px of padding top and bottom, so the card lands in the middle
-   both ways. */
+/* Centre the login card within the viewport, allowing for body padding. */
 #login-view {
-  max-width: none;
   min-height: calc(100vh - 40px);
   display: flex;
   align-items: center;
@@ -87,10 +73,10 @@ button:disabled {
   font-size: 0.85rem;
 }
 
-/* Inputs sit on the card rather than punching a bright white hole in it:
-   a slightly lighter slate with a thin border reads as a field at a glance
-   and keeps the same visual weight as the button below. */
 .login-card input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
   margin: 0;
   padding: 9px 12px;
   background: #0f172a;
@@ -214,7 +200,6 @@ button:disabled {
 }
 
 .card h2 {
-  margin: 0 0 12px;
   font-size: 1.1rem;
 }
 
@@ -374,7 +359,6 @@ button:disabled {
    bar, and let the run row wrap rather than squeezing the status text. */
 @media (max-width: 420px) {
   .dashboard-header { display: flex; justify-content: space-between; }
-  .header-spacer { display: none; }
   .dashboard-header h1 { font-size: 1.4rem; }
 
   .skill {
@@ -440,7 +424,6 @@ kbd {
 }
 
 .gql-input:focus-visible {
-  outline: 2px solid #38bdf8;
   outline-offset: -1px;
 }
 

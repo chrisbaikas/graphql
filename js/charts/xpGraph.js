@@ -26,7 +26,7 @@ export async function drawXpGraph() {
     // Build cumulative-XP points: x = time (ms), y = running total.
     let running = 0;
     const points = transactions.map((t) => {
-      running += t.amount || 0;
+      running += t.amount;
       return { x: new Date(t.createdAt).getTime(), y: running };
     });
 

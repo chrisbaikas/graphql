@@ -3,7 +3,7 @@
 // level is a separate query (its own transaction type).
 
 import { XP_VISIBLE } from "../config.js";
-import { fetchLevel, fetchXpBreakdown } from "../data/profile.js";
+import { fetchLevel, fetchTotalXp, fetchXpBreakdown } from "../data/profile.js";
 import { applyOverflow, resetOverflow } from "../ui/collapsible.js";
 import { formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
@@ -23,10 +23,9 @@ export async function loadXpSection() {
   const session = currentSession();
 
   try {
-    const rows = await fetchXpBreakdown();
+    const [rows, totalXp] = await Promise.all([fetchXpBreakdown(), fetchTotalXp()]);
     if (!isCurrentSession(session)) return;
 
-    const totalXp = rows.reduce((sum, r) => sum + r.amount, 0);
     if (totalEl) totalEl.textContent = formatXp(totalXp);
     if (countEl) countEl.textContent = String(rows.length);
 

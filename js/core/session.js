@@ -36,8 +36,7 @@ export function sessionSignal() {
   return controller.signal;
 }
 
-// Start a new generation and return its id. Callers hold on to the returned
-// value and pass it to isCurrentSession() after every await.
+// Invalidate old loaders and cancel their requests before starting a new load.
 export function newSession() {
   generation += 1;
   controller.abort();

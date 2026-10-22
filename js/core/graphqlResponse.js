@@ -1,11 +1,13 @@
 /* Shared envelope rules; the playground still displays the complete response. */
 export function isGraphqlEnvelope(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  if ("errors" in value && (!Array.isArray(value.errors) || value.errors.some((error) =>
-    !error || typeof error.message !== "string"
-  ))) return false;
-  const hasData = value.data && typeof value.data === "object" && !Array.isArray(value.data);
-  return Boolean(hasData || value.errors?.length);
+  if ("errors" in value) {
+    if (!Array.isArray(value.errors)) return false;
+    if (value.errors.some((error) => !error || typeof error.message !== "string")) return false;
+  }
+  const hasData = Boolean(value.data) && typeof value.data === "object" && !Array.isArray(value.data);
+  const hasErrors = Boolean(value.errors?.length);
+  return hasData || hasErrors;
 }
 
 export function graphqlErrorMessage(value) {

@@ -9,7 +9,7 @@
 // all — rather than collapse it into a thrown message. So this posts directly
 // and renders whatever comes back, errors included.
 
-import { DEFAULT_PLAYGROUND_QUERY, GRAPHQL_URL } from "./config.js";
+import { GRAPHQL_URL } from "./config.js";
 import { fetchWithTimeout, readResponse, TimeoutError } from "./core/http.js";
 import { isTokenExpired } from "./core/jwt.js";
 import { getToken } from "./core/storage.js";
@@ -182,10 +182,9 @@ export function setupPlayground() {
   // so nothing fires against the endpoint unasked.
   for (const btn of document.querySelectorAll(".gql-example")) {
     btn.addEventListener("click", () => {
-      queryEl.value = QUERIES[btn.dataset.query] || DEFAULT_PLAYGROUND_QUERY;
-      if (document.getElementById("gql-variables")) {
-        document.getElementById("gql-variables").value = "";
-      }
+      queryEl.value = QUERIES[btn.dataset.query] || QUERIES.USER;
+      const variablesEl = document.getElementById("gql-variables");
+      if (variablesEl) variablesEl.value = "";
       queryEl.focus();
     });
   }
@@ -205,6 +204,6 @@ export function resetPlayground() {
   if (statusEl) statusEl.textContent = "";
   // The editors too, not just the output: a query someone typed can name ids
   // or filters that belong to their session, not the next one's.
-  if (queryEl) queryEl.value = DEFAULT_PLAYGROUND_QUERY;
+  if (queryEl) queryEl.value = QUERIES.USER;
   if (varsEl) varsEl.value = "";
 }

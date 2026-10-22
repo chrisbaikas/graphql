@@ -886,7 +886,7 @@ Polish the interface to good-UI standards.
 
 ### What was already in place
 Much of this arrived with earlier tickets rather than as a late polish pass:
-`showLoading()` fills every value slot with "Loading…" (T5–T11), each section
+`resetDashboard("Loading…")` fills every value slot (T5–T11), each section
 has its own empty and error state, the login form has real labels plus
 `autocomplete` and `required`, the layout uses only max-widths, and the graphs
 scale via `viewBox`.
@@ -1058,3 +1058,39 @@ zero runtime dependencies, hand-written SVG, and no build step.
 The complete audited change is committed on the existing branch under the
 user's explicit instruction. No new branch or history rewrite is needed; git
 history records the commit hash and the final delivery report records push status.
+
+
+## Readability and dead-code review — 2026-10-22
+
+- [x] Shared loading/logout cleanup in `ui/views.js`: one reset path clears
+      sessions, caches, modal, playground, overflow controls and placeholders.
+- [x] The XP card now uses `fetchTotalXp()` rather than repeating its sum.
+      Both consumers still join the same cached XP request sequence.
+- [x] Removed unused `isAbortError()` and its helper-only test. Cancellation
+      and body-timeout behavior remain covered by the existing behavioral tests.
+- [x] Kept module-local helpers private (`SVG_NS`, `setExpanded`,
+      `renderProjectsGraph`, `loadProfile`, `DOMAIN`, `REQUEST_TIMEOUT_MS`)
+      and removed the old `showLoading` path and unused axis-baseline default.
+- [x] Centralized page size and recent-history limits in config. Playground
+      defaults use the existing USER query instead of a duplicated query string.
+- [x] Removed redundant amount fallbacks after normalization, an unreachable
+      audit-type branch, unused HTML class and overridden CSS declarations.
+      Orphan project rows use their transaction ID as the grouping fallback.
+- [x] Reused shared storage/JWT test fixtures, simplified conditionals and
+      shortened repeated historical comments while retaining the data rules.
+      The final pass also reuses the deferred-promise fixture and removes a
+      single-query loop left over in the query tests.
+- [x] Final HTML/CSS pass removes the empty header spacer, overridden input
+      declarations and repeated focus outline. CSP/favicon comments now describe
+      their actual purpose. Section IDs remain documented audit anchors.
+
+Verification: **120 tests** remain from the original 122: removed the obsolete
+`isAbortError` helper test and an assertion of the private timeout constant's
+value. Actual timeout, body-timeout and cancellation coverage remains intact;
+`make check` and `git diff --check` pass. Generated GraphQL strings are identical
+before/after cleanup, so the documented live queries and data scope stay valid.
+Chromium regression checks cover login/loading/logout, user changes, GraphiQL,
+SVGs, empty/negative/large datasets, mobile layout, keyboard modal and subpaths.
+All CSS selectors match across the tested UI states, DOM ID references resolve,
+and all 28 production modules are reachable without circular imports.
+The real-account and public-host verification tasks remain T13 and T12.

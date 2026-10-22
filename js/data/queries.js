@@ -12,7 +12,7 @@
 // excludes nested Piscine rows the platform's own XP board does not count — see
 // isCursusPath() in profile.js and the CURSUS_ROOT comment in config.js.
 
-import { CURSUS_ROOT } from "../config.js";
+import { CURSUS_ROOT, PROFILE_PAGE_SIZE } from "../config.js";
 
 // The app's NORMAL query: no arguments, no nesting.
 export const USER = `{ user { id login } }`;
@@ -20,7 +20,7 @@ export const USER = `{ user { id login } }`;
 // WITH ARGUMENTS (where: type _eq "xp"), ordered so the same rows serve both
 // the XP total and both XP graphs. `createdAt` is fetched here even
 // though the total ignores it — one request feeding both beats two requests.
-export const XP_TRANSACTIONS = `query XpTransactions($limit: Int = 500, $offset: Int = 0) {
+export const XP_TRANSACTIONS = `query XpTransactions($limit: Int = ${PROFILE_PAGE_SIZE}, $offset: Int = 0) {
   transaction(
     limit: $limit
     offset: $offset
@@ -43,7 +43,7 @@ export const XP_TRANSACTIONS = `query XpTransactions($limit: Int = 500, $offset:
 }`;
 
 // WITH ARGUMENTS (_in). XP given to others ("up") and received ("down").
-export const AUDIT_TOTALS = `query AuditTotals($limit: Int = 500, $offset: Int = 0) {
+export const AUDIT_TOTALS = `query AuditTotals($limit: Int = ${PROFILE_PAGE_SIZE}, $offset: Int = 0) {
   transaction(
     limit: $limit
     offset: $offset
@@ -52,7 +52,7 @@ export const AUDIT_TOTALS = `query AuditTotals($limit: Int = 500, $offset: Int =
 }`;
 
 // NESTED: the latest project results with the related `object` inside each.
-export const RECENT_PROJECTS = `query RecentProjects($limit: Int = 500, $offset: Int = 0) {
+export const RECENT_PROJECTS = `query RecentProjects($limit: Int = ${PROFILE_PAGE_SIZE}, $offset: Int = 0) {
   result(
     limit: $limit
     offset: $offset
@@ -79,7 +79,7 @@ export const RECENT_PROJECTS = `query RecentProjects($limit: Int = 500, $offset:
 //
 // Read every page before taking the maximum. Selecting only the top row
 // before the Piscine filter could report a Piscine level as the cursus one.
-export const LEVEL = `query Level($limit: Int = 500, $offset: Int = 0) {
+export const LEVEL = `query Level($limit: Int = ${PROFILE_PAGE_SIZE}, $offset: Int = 0) {
   transaction(
     limit: $limit
     offset: $offset
@@ -97,7 +97,7 @@ export const LEVEL = `query Level($limit: Int = 500, $offset: Int = 0) {
 
 // WITH ARGUMENTS (_like). Skills are transactions typed `skill_*`, where
 // `amount` is a percentage rather than XP.
-export const SKILLS = `query Skills($limit: Int = 500, $offset: Int = 0) {
+export const SKILLS = `query Skills($limit: Int = ${PROFILE_PAGE_SIZE}, $offset: Int = 0) {
   transaction(
     limit: $limit
     offset: $offset

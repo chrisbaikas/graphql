@@ -1,20 +1,6 @@
-/* ---------------- PROFILE DATA ---------------- */
-//
-// The fetch layer. Every function here returns plain data and touches no DOM,
-// so the render code in sections/ and charts/ can be read (and reasoned about)
-// without network concerns mixed in.
-//
-// Each fetcher caches its in-flight promise for the current dashboard load.
-// loadProfile() starts several consumers at once and more than one of them
-// wants the same rows: the XP card and both XP graphs share
-// XP_TRANSACTIONS, and the audit card and audit graph share AUDIT_TOTALS.
-// Caching the promise (not the resolved value) means concurrent callers join
-// the same request rather than racing two identical ones.
-//
-// clearProfileCache() drops everything, so one user's data can never be served
-// to the next — it is called by logout() and again at the start of each load.
+/* Fetch plain profile data, deduplicating requests within each session load. */
 
-import { CURSUS_ROOT, PISCINE_SEGMENT } from "../config.js";
+import { CURSUS_ROOT, PISCINE_SEGMENT, PROFILE_PAGE_SIZE, RECENT_LIMIT } from "../config.js";
 import { graphqlRequest } from "../core/graphql.js";
 import * as QUERIES from "./queries.js";
 import { currentSession } from "../core/session.js";
@@ -23,24 +9,8 @@ import { formatSkillName } from "../ui/format.js";
 let cache = {};
 let cacheSession = currentSession();
 
-// Does this path name a row the platform's own XP board counts?
-//
-// Everything under the cursus root counts, EXCEPT rows nested inside a Piscine.
-// A Piscine is scored twice in the raw data — once as a roll-up on the Piscine
-// object itself, and again on every exercise inside it — and the board keeps
-// only the roll-up. Relative to CURSUS_ROOT:
-//
-//   ascii-art                keep  (a project)
-//   checkpoint/safe-sum      keep  (an exam exercise; folder name varies)
-//   piscine-rust             keep  (the roll-up the board shows)
-//   piscine-rust/q-01/ex-3   drop  (already inside that roll-up)
-//
-// Note this counts by what a row IS, not by how deep it sits: exam folders are
-// named inconsistently across years, so a depth or folder allow-list quietly
-// loses whichever exams it fails to predict.
-//
-// Anything outside the cursus root is dropped outright, so a caller can hand
-// this every row it has without pre-filtering.
+// Keep cursus projects, exams and Piscine roll-ups, but exclude exercises
+// inside a Piscine: the roll-up already includes their XP.
 export function isCursusPath(path) {
   if (typeof path !== "string") return false;
   if (!path.startsWith(`${CURSUS_ROOT}/`)) return false;
@@ -59,20 +29,15 @@ export function clearProfileCache() {
   cache = {};
 }
 
-// Run `fn` once per load, keyed by name; concurrent callers share the promise.
-//
-// The promise itself is cached, and eviction is attached as a separate handler
-// rather than by caching `fn().catch(...)`. Caching the derived promise would
-// leave a rejection with no handler in the window between eviction and the next
-// caller, which surfaces as an unhandled rejection even though every caller
-// does have a try/catch. `catch(() => {})` on the eviction branch keeps that
-// bookkeeping chain settled; callers still see the real rejection because they
-// await the original promise.
+// Cache the original promise so concurrent consumers share it. Failed entries
+// are evicted only if they still belong to this load; newer entries stay intact.
 function once(key, fn) {
   if (cacheSession !== currentSession()) clearProfileCache();
   if (!cache[key]) {
     const promise = fn();
-    promise.catch(() => { if (cache[key] === promise) delete cache[key]; });
+    promise.catch(() => {
+      if (cache[key] === promise) delete cache[key];
+    });
     cache[key] = promise;
   }
   return cache[key];
@@ -93,11 +58,11 @@ function amountOf(row) {
   return row.amount;
 }
 
-async function fetchRows(query, field, enough = () => false) {
+async function fetchRows(query, field, hasEnoughRows = () => false) {
   const rows = [];
   const seen = new Set();
   while (true) {
-    const data = await graphqlRequest(query, { limit: 500, offset: rows.length });
+    const data = await graphqlRequest(query, { limit: PROFILE_PAGE_SIZE, offset: rows.length });
     const page = rowsFrom(data, field);
     if (!page.length) return rows;
     for (const row of page) {
@@ -106,7 +71,7 @@ async function fetchRows(query, field, enough = () => false) {
       seen.add(row.id);
       rows.push(row);
     }
-    if (enough(rows)) return rows;
+    if (hasEnoughRows(rows)) return rows;
   }
 }
 
@@ -135,16 +100,10 @@ export function fetchXpTransactions() {
   });
 }
 
-// The row's display name. The linked object carries the real name the platform
-// shows ("Piscine Rust"), so prefer it; the path's last segment is only a
-// fallback for rows whose object didn't come back.
-//
-// The fallback is a fallback and not the primary source because a slug is not
-// the name: `ascii-art-web-export-file` is one object whose path ends
-// `.../export-file`, and taking the last segment renders it as "Export file",
-// losing which project it belongs to.
+// Prefer the platform's name: nested path slugs can lose the parent project
+// (e.g. ascii-art-web/export-file). Use the slug only when no object is linked.
 function labelForRow(row) {
-  const name = row.object && row.object.name;
+  const name = row.object?.name;
   if (name) return name;
 
   const segments = String(row.path || "").split("/").filter(Boolean);
@@ -160,7 +119,7 @@ export async function fetchXpBreakdown() {
   return transactions
     .map((t) => ({
       name: labelForRow(t),
-      amount: t.amount || 0,
+      amount: t.amount,
       createdAt: t.createdAt
     }))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -193,7 +152,7 @@ export function fetchAuditTotals() {
     for (const t of transactions) {
       if (t.type !== "up" && t.type !== "down") throw new Error("Invalid audit type returned by the platform.");
       if (t.type === "up") done += amountOf(t);
-      else if (t.type === "down") received += amountOf(t);
+      else received += amountOf(t);
     }
     return { done, received };
   });
@@ -203,10 +162,10 @@ export function fetchAuditTotals() {
 export function fetchRecentProjects() {
   return once("recent", async () => {
     const rows = await fetchRows(QUERIES.RECENT_PROJECTS, "result",
-      (page) => page.filter((r) => isCursusPath(r.path)).length >= 60);
-    const results = rows.filter((r) => isCursusPath(r.path)).slice(0, 60);
+      (page) => page.filter((r) => isCursusPath(r.path)).length >= RECENT_LIMIT);
+    const results = rows.filter((r) => isCursusPath(r.path)).slice(0, RECENT_LIMIT);
     return results.map((r) => ({
-      name: (r.object && r.object.name) || "Unknown",
+      name: r.object?.name || "Unknown",
       passed: Number.isFinite(r.grade) ? r.grade >= 1 : null
     }));
   });
@@ -234,31 +193,22 @@ export function fetchSkills() {
   });
 }
 
-// XP totalled per project as [{ name, amount }, ...], largest first.
-// A project can pay out more than once, so its rows are totalled rather than
-// trusting a single one.
-//
-// Grouping is by the object's ID, never by its name. Two distinct projects can
-// share a display name (the same exercise offered on two paths, say), and rows
-// with no linked object have no name at all — keying on the name would merge
-// unrelated projects into one bar and pile every orphan row into a single
-// "Unknown". The name is carried along purely as the bar's label.
+// Group payouts by object ID, not display name: different objects can share
+// a name. Rows without a linked object fall back to objectId or remain separate.
 export function fetchProjectXp() {
   return once("projectXp", async () => {
     const transactions = await fetchXpTransactions();
 
     const totals = new Map();
-    for (const t of transactions) {
-      const object = t.object || null;
-      // objectId is the fallback key when the nested object didn't come back;
-      // a row with neither keeps its own identity rather than joining a shared
-      // "Unknown" bucket.
-      const id = (object && object.id) ?? t.objectId ?? `unknown:${totals.size}`;
-      const name = labelForRow(t);
-
-      const entry = totals.get(id);
-      if (entry) entry.amount += t.amount || 0;
-      else totals.set(id, { name, amount: t.amount || 0 });
+    for (const transaction of transactions) {
+      const objectId = transaction.object?.id ?? transaction.objectId;
+      const key = objectId ?? `transaction:${transaction.id}`;
+      const entry = totals.get(key);
+      if (entry) {
+        entry.amount += transaction.amount;
+      } else {
+        totals.set(key, { name: labelForRow(transaction), amount: transaction.amount });
+      }
     }
 
     return [...totals.values()].sort((a, b) => b.amount - a.amount);

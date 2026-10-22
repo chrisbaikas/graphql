@@ -56,7 +56,7 @@ function hideToggle() {
 
 // Draw the XP-by-project bars: the top PROJECTS_VISIBLE, or all of them when
 // `expanded`. Keeps the toggle's label and state in sync.
-export function renderProjectsGraph(expanded) {
+function renderProjectsGraph(expanded) {
   const box = document.getElementById("graph-projects");
   const toggle = document.getElementById("projects-toggle");
   if (!box) return;

@@ -1,5 +1,5 @@
 /* Shared request budget, including reads of the response body. */
-export const REQUEST_TIMEOUT_MS = 12_000;
+const REQUEST_TIMEOUT_MS = 12_000;
 const responseSignals = new WeakMap();
 
 export class TimeoutError extends Error {
@@ -34,8 +34,4 @@ export async function readResponse(response, type = "json") {
     }
     throw err;
   }
-}
-
-export function isAbortError(err) {
-  return Boolean(err) && (err.name === "TimeoutError" || err.name === "AbortError");
 }

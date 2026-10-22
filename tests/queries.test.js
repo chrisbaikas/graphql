@@ -43,10 +43,7 @@ test("isCursusPath matches a Piscine segment, not any name containing it", () =>
   assert.equal(isCursusPath(`${CURSUS_ROOT}/my-piscine-notes/ex`), true);
 });
 
-// Exam folders are named inconsistently across years — older exams sit under
-// `checkpoint/`, the 2026 ones do not. An allow-list of folder names silently
-// dropped safe-sum, ascii-render and validate-stack (33 kB), leaving the total
-// 1.19 MB against the platform's 1.22 MB. Keep exams whatever the folder.
+// Exam folders vary across years, so their names must not restrict XP scope.
 test("isCursusPath keeps exam exercises whatever the folder is named", () => {
   for (const folder of ["checkpoint", "checkpoints", "exam", "tests", "2026"]) {
     assert.equal(isCursusPath(`${CURSUS_ROOT}/${folder}/safe-sum`), true, folder);
@@ -71,16 +68,13 @@ test("isCursusPath tolerates a missing or non-string path", () => {
 // The rolled-up Piscine rows and the exam exercises both live outside a plain
 // "projects only" filter, so the queries must NOT narrow to project objects —
 // doing so would silently drop 460 kB of Piscine XP and every exam row.
-test("XP queries fetch path and do not filter to project objects", () => {
-  for (const name of ["XP_TRANSACTIONS"]) {
-    const query = QUERIES[name];
-    assert.match(query, /type:\s*\{\s*_eq:\s*"xp"\s*\}/, `${name} filters type`);
-    assert.ok(query.includes(`path: { _like: "${CURSUS_ROOT}/%" }`),
-      `${name} must scope to the cursus root`);
-    assert.match(query, /^\s*path\s*$/m, `${name} must select path`);
-    assert.ok(!query.includes('object: { type: { _eq: "project" } }'),
-      `${name} must not drop piscine roll-ups and exam rows`);
-  }
+test("XP query fetches path and does not filter to project objects", () => {
+  const query = QUERIES.XP_TRANSACTIONS;
+  assert.match(query, /type:\s*\{\s*_eq:\s*"xp"\s*\}/);
+  assert.ok(query.includes(`path: { _like: "${CURSUS_ROOT}/%" }`));
+  assert.match(query, /^\s*path\s*$/m, "XP must select path");
+  assert.ok(!query.includes('object: { type: { _eq: "project" } }'),
+    "XP must not drop piscine roll-ups and exam rows");
 });
 
 // The level track is per-event too: a Piscine levels independently of the

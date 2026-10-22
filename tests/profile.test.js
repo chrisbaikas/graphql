@@ -1,11 +1,5 @@
-// These exercise the data layer's transforms by actually RUNNING them against a
-// stubbed GraphQL response. The XP queries' own shape is pinned in
-// queries.test.js; what is pinned here is the code that consumes the rows.
-//
-// This file exists because a released bug ("labelForRow is not defined") passed
-// both `node --check` and a full test run: every test asserted on query strings
-// and on isCursusPath, so no test ever called the function that was missing.
-// Asserting a function's shape is not the same as calling it.
+// Exercise data transformations against stubbed GraphQL responses.
+// Query definitions and path-scope rules are covered in queries.test.js.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -13,25 +7,14 @@ import assert from "node:assert/strict";
 import { newSession } from "../js/core/session.js";
 import { CURSUS_ROOT } from "../js/config.js";
 
-// core/graphql.js reads a JWT from sessionStorage, which does not exist under
-// node. Stub the globals it touches before importing the data layer.
-globalThis.sessionStorage = {
-  _v: {},
-  getItem(k) { return this._v[k] ?? null; },
-  setItem(k, v) { this._v[k] = String(v); },
-  removeItem(k) { delete this._v[k]; }
-};
+import { memoryStorage, tokenFor } from "./helpers.js";
 
-const { fetchXpBreakdown, fetchTotalXp, fetchLevel, fetchProjectXp, fetchSkills, fetchAuditTotals, clearProfileCache } =
-  await import("../js/data/profile.js");
+globalThis.sessionStorage = memoryStorage();
 
-// A JWT that is structurally valid and expires far in the future, so
-// graphqlRequest() proceeds to the (stubbed) fetch instead of logging out.
-function makeToken() {
-  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
-  const exp = Math.floor(Date.now() / 1000) + 3600;
-  return `${b64({ alg: "HS256" })}.${b64({ exp })}.sig`;
-}
+import {
+  fetchXpBreakdown, fetchTotalXp, fetchLevel, fetchProjectXp,
+  fetchSkills, fetchAuditTotals, clearProfileCache
+} from "../js/data/profile.js";
 
 // Serve a fixed `transaction` array to whichever query is sent.
 function stubTransactions(rowsFor) {
@@ -47,7 +30,7 @@ function stubTransactions(rowsFor) {
 
 test.beforeEach(() => {
   clearProfileCache();
-  sessionStorage.setItem("token", makeToken());
+  sessionStorage.setItem("token", tokenFor());
 });
 
 test("fetchXpBreakdown labels rows and sorts them newest first", async () => {

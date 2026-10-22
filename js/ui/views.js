@@ -1,8 +1,4 @@
-/* ---------------- VIEWS ---------------- */
-//
-// Switching between the login and dashboard views, plus the loading and reset
-// states of the profile itself.
-
+/* Login/dashboard routing and shared loading/logout reset. */
 import { clearProfileCache } from "../data/profile.js";
 import { resetProjectsCache } from "../charts/projectsGraph.js";
 import { resetAllOverflow } from "./collapsible.js";
@@ -10,6 +6,7 @@ import { resetPlayground } from "../playground.js";
 import { clearDashboardError } from "./errors.js";
 import { newSession } from "../core/session.js";
 import { closeGraphModal } from "./modal.js";
+import { COLLAPSIBLE_LISTS } from "../config.js";
 
 import { loadUserSection } from "../sections/user.js";
 import { loadXpSection } from "../sections/xp.js";
@@ -21,8 +18,6 @@ import { loadStatsSection } from "../sections/stats.js";
 export function showLogin() {
   const loginView = document.getElementById("login-view");
   const dashboardView = document.getElementById("dashboard-view");
-  // `flex`, not `block`: an inline display would override the stylesheet's
-  // `display: flex` on #login-view and drop the card out of the centre.
   if (loginView) loginView.style.display = "flex";
   if (dashboardView) dashboardView.style.display = "none";
   document.getElementById("username")?.focus();
@@ -37,22 +32,9 @@ export function showDashboard() {
   dashboardView?.querySelector("h1")?.focus();
 }
 
-// Loads every dashboard section. Each section loader handles its own errors so
-// one failing query doesn't blank the whole profile.
-//
-// The loaders are started together, not awaited in sequence: several of them
-// share rows through the data layer's cache, so a concurrent start is what lets
-// the shared fetches collapse into one request each.
-export function loadProfile() {
-  // A new generation invalidates anything still in flight from a previous load
-  // or a previous user, so a late response can no longer paint this dashboard.
-  newSession();
-  closeGraphModal(false);
-  resetPlayground();
-  resetProjectsCache();
-  clearDashboardError();
-  clearProfileCache(); // a reload must re-fetch, not replay the last load
-  showLoading();
+function loadProfile() {
+  resetDashboard("Loading…");
+  // Start together so consumers of the same rows share the cached request.
   loadUserSection();
   loadXpSection();
   loadAuditSection();
@@ -61,37 +43,12 @@ export function loadProfile() {
   loadStatsSection();
 }
 
-// Show a "Loading…" hint in every value slot until each section's data arrives.
-export function showLoading() {
-  resetAllOverflow();
-
-  const recent = document.getElementById("recent-list");
-  if (recent) recent.innerHTML = "<li>Loading…</li>";
-  const skills = document.getElementById("skills-list");
-  if (skills) skills.innerHTML = "<li>Loading…</li>";
-  const xp = document.getElementById("xp-list");
-  if (xp) xp.innerHTML = "<li>Loading…</li>";
-
-  const profile = document.getElementById("profile");
-  if (!profile) return;
-  for (const dd of profile.querySelectorAll(".info dd")) {
-    dd.textContent = "Loading…";
-  }
-  for (const box of profile.querySelectorAll(".graph-box")) {
-    box.removeAttribute("aria-description");
-    box.innerHTML = '<p class="graph-placeholder">Loading…</p>';
-  }
+export function resetProfile() {
+  resetDashboard("—");
 }
 
-// Reset every rendered profile value back to its placeholder without destroying
-// the DOM structure (so loadProfile() can refill it on the next login).
-//
-// The cache-clearing calls come first, before any DOM lookup can bail out: they
-// are what actually drop the previous user's data, and skipping them because a
-// container element is missing would leave that data in memory.
-export function resetProfile() {
-  // Same generation bump on the way out: requests started by the user who is
-  // logging out are now stale and will discard their own results.
+function resetDashboard(placeholder) {
+  // Invalidate async work and clear caches before touching the rendered state.
   newSession();
   closeGraphModal(false);
   clearProfileCache();
@@ -99,21 +56,28 @@ export function resetProfile() {
   resetPlayground();
   clearDashboardError();
   resetAllOverflow();
+  renderPlaceholders(placeholder);
+}
 
-  const recent = document.getElementById("recent-list");
-  if (recent) recent.innerHTML = "<li>—</li>";
-  const skills = document.getElementById("skills-list");
-  if (skills) skills.innerHTML = "<li>—</li>";
-  const xp = document.getElementById("xp-list");
-  if (xp) xp.innerHTML = "<li>—</li>";
+function renderPlaceholders(text) {
+  for (const [listId] of COLLAPSIBLE_LISTS) {
+    const list = document.getElementById(listId);
+    if (!list) continue;
+    const item = document.createElement("li");
+    item.textContent = text;
+    list.replaceChildren(item);
+  }
 
   const profile = document.getElementById("profile");
   if (!profile) return;
-  for (const dd of profile.querySelectorAll(".info dd")) {
-    dd.textContent = "—";
+  for (const value of profile.querySelectorAll(".info dd")) {
+    value.textContent = text;
   }
   for (const box of profile.querySelectorAll(".graph-box")) {
+    const message = document.createElement("p");
+    message.className = "graph-placeholder";
+    message.textContent = text;
     box.removeAttribute("aria-description");
-    box.innerHTML = '<p class="graph-placeholder">—</p>';
+    box.replaceChildren(message);
   }
 }

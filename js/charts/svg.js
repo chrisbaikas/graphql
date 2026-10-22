@@ -5,7 +5,7 @@
 // not a charting library — so this module is that proof: a handful of DOM
 // helpers and shared geometry, with no third-party code behind them.
 
-export const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Create an SVG element in the correct namespace and apply attributes.
 // `attrs` keys map straight to SVG attribute names (e.g. { x1: 0, stroke: "#fff" }).
@@ -42,9 +42,8 @@ export const CHART = {
 CHART.plotW = CHART.W - CHART.pad.left - CHART.pad.right;
 CHART.plotH = CHART.H - CHART.pad.top - CHART.pad.bottom;
 
-// Draw the L-shaped X/Y axes into an existing <svg>. Returns nothing — callers
-// add their own data marks and labels on top.
-export function drawAxes(svg, baselineY = CHART.pad.top + CHART.plotH) {
+// The horizontal axis follows zero, which may be inside the plot for negative XP.
+export function drawAxes(svg, baselineY) {
   const { pad, plotW, plotH, axis } = CHART;
   svg.appendChild(svgEl("line", {
     x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
