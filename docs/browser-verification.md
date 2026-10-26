@@ -85,7 +85,10 @@ HTTP 401 and a visible error, with no stored token. Real sign-in and GraphQL
 preflights returned 204; their rejection responses were readable across origins.
 There were no unexpected console errors, CSP violations or failed resources.
 
-No real Zone01 session was available, as confirmed by the user. Successful
-hosted authentication, dashboard values/graphs, authenticated refresh/logout and
-independent platform GraphiQL comparisons remain pending under T12/T13. The
-synthetic dashboard tests above do not close those live checks.
+No real Zone01 session was available during that initial hosting pass. The
+subsequent visible Chromium pass used manual username/email and platform logins:
+hosted authentication, dashboard/graph values, authenticated refresh/logout and
+independent platform GraphiQL comparisons all passed. Live graph/modal labels
+also passed the five widths above, including keyboard focus and reduced motion.
+T12/T13 are now DONE; see the [dated live-account evidence](data-verification.md#live-account-results--2026-10-26).
+The synthetic results above remain separate from that real-account verification.

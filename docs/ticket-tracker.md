@@ -26,26 +26,27 @@
 ## Where the project stands (2026-10-26)
 
 The required features and bonus cards/graphs/playground are implemented.
-**The project is not yet fully audit-verified.** Remaining work:
+**T12 and T13 are DONE. The project is audit ready for the verified account.**
 
-| Remaining | Completion evidence | Ticket |
+| Requirement | Completion evidence | Ticket |
 | --- | --- | --- |
-| Finish hosted account checks | Public HTTPS site deployed from `main / root`; successful login, live sections/graphs, authenticated refresh and logout await a real account | T12 — IN PROGRESS |
-| Verify source data with a real account | Complete [data-verification.md](./data-verification.md) in the platform's independent GraphiQL | T13 — IN PROGRESS |
-| Final live browser pass | Username AND email login, wrong credentials, expired/revoked token, keyboard controls, small screen and tab-scoped sessions | T2/T3/T4/T17 manual boxes |
+| Hosted account checks | Public HTTPS site from `main / root`; username/email login, sections/graphs, authenticated refresh and logout passed | T12 — DONE |
+| Real source-data accuracy | Independent platform GraphiQL comparisons: identity, cursus/types/permissions, XP, audits, skills, results and graph values all MATCH | T13 — DONE |
+| Live browser pass | Invalid login, rejected/expired session handling, keyboard/mouse graphs, readable mobile labels and independent-tab isolation passed | T2/T3/T4/T17 manual boxes complete |
 
 The 2026-10-22 review exercised the app locally with synthetic API responses;
 it did not use real credentials, publish a site, or establish live data accuracy.
-Checked implementation boxes describe code delivered; unchecked manual boxes
-remain required before claiming a complete audit pass.
+That historical review was followed by the actual hosting and real-account
+verification below. Conditional datasets absent from the real account remain
+explicitly identified as regression fixtures in the data-verification record.
 
 On 2026-10-26, `make test` and `make check` passed all 123 Node tests, and
 Chromium/Firefox each passed all 14 synthetic browser groups. The public site is
 https://chrisbaikas.github.io/graphql-profile/ (GitHub Pages, `main / root`, HTTPS
-enforced). Hosted Chromium/Firefox checks verified assets/modules, login layout,
-keyboard focus, invalid credentials and API CORS. The user confirmed that no
-real Zone01 session is available; authenticated hosting and independent
-GraphiQL comparisons remain pending. No live-account checkbox was closed.
+enforced). Initial hosted Chromium/Firefox checks verified assets/modules, login
+layout, keyboard focus, invalid credentials and API CORS. The subsequent visible
+Chromium pass used manual username/email and platform logins. All live values
+matched the platform GraphiQL and Module stats. No production fix was needed.
 
 ---
 
@@ -136,10 +137,10 @@ Obtain a JWT from the `signin` endpoint using HTTP **Basic** auth
 - Form submits on Enter (`submit` handler with `preventDefault`).
 
 ### Manual verification (needs live creds)
-- [ ] Log in with username+password → reaches dashboard
-- [ ] Log in with email+password → reaches dashboard
-- [ ] Wrong password → "Invalid credentials" message, stays on login
-- [ ] Confirm stored token in DevTools has no surrounding quotes
+- [x] Log in with username+password → reaches dashboard
+- [x] Log in with email+password → reaches dashboard
+- [x] Wrong password → "Invalid credentials" message, stays on login
+- [x] Confirm stored token in DevTools has no surrounding quotes
 
 ---
 
@@ -176,8 +177,8 @@ Persist the session across reloads and provide a working logout.
 
 ### Manual verification (needs live session)
 - [x] Log in, refresh the page → stays on the dashboard
-- [ ] Click Logout → returns to login, `sessionStorage.token` is `null`
-- [ ] After logout, the dashboard shows no leftover profile data
+- [x] Click Logout → returns to login, `sessionStorage.token` is `null`
+- [x] After logout, the dashboard shows no leftover profile data
 
 ---
 
@@ -212,8 +213,8 @@ endpoint with `Bearer` auth and consistent error handling.
 - Callers (Tickets 5–11) `await graphqlRequest(...)` and catch to show messages.
 
 ### Manual verification (needs live session)
-- [ ] A simple `{ user { id login } }` call returns data while logged in
-- [ ] Tampering the stored token then querying → graceful logout, no crash
+- [x] A simple `{ user { id login } }` call returns data while logged in
+- [x] Tampering the stored token then querying → graceful logout, no crash
 
 ---
 
@@ -239,7 +240,7 @@ Display basic user identification — the first of the three required sections.
 
 ### Acceptance criteria
 - [x] The section renders the logged-in user's real `login` and `id`
-- [ ] Values match what GraphiQL returns for the same query (manual — see T13)
+- [x] Values match what GraphiQL returns for the same query (manual — see T13)
 
 ### Implementation notes
 - Markup: `#user-section` card in `index.html` with `#user-login` / `#user-id`.
@@ -250,7 +251,7 @@ Display basic user identification — the first of the three required sections.
 
 ### Manual verification (needs live session)
 - [x] Dashboard shows the correct login and id — `chbaikas` / `6844`
-- [ ] Values match `{ user { id login } }` run in GraphiQL
+- [x] Values match `{ user { id login } }` run in GraphiQL
 
 ---
 
@@ -293,7 +294,7 @@ query XpTransactions($limit: Int = 500, $offset: Int = 0) {
 - [x] Human-readable formatting (e.g. kB / MB if the platform uses byte-XP)
 
 ### Acceptance criteria
-- [ ] Total XP matches the sum computed from GraphiQL for the same query (manual — see T13)
+- [x] Total XP matches the sum computed from GraphiQL for the same query (manual — see T13)
 - [x] Only `xp`-type transactions are counted (no `level`/`up`/`down` noise)
 
 ### Implementation notes
@@ -306,8 +307,8 @@ query XpTransactions($limit: Int = 500, $offset: Int = 0) {
 
 ### Manual verification (needs live session)
 - [x] Dashboard computes cursus XP from the filtered transactions; live total
-      verification remains under T13
-- [ ] Value matches the sum of `amount` for the same query in GraphiQL
+      verified under T13 on 2026-10-26
+- [x] Value matches the sum of `amount` for the same query in GraphiQL
 
 ---
 
@@ -340,8 +341,8 @@ query AuditTotals($limit: Int = 500, $offset: Int = 0) {
 - [x] Audit ratio = total `up` / total `down`
 
 ### Acceptance criteria
-- [ ] Audit ratio matches the current platform profile — live re-check under T13
-      (the old 0.8 observation is not a current baseline)
+- [x] Audit ratio matches the current platform profile — independently
+      reverified as 0.8 on 2026-10-26 from the dated sums under T13
 
 ### Implementation notes
 - Markup: `#grades-section` card with `#audit-done`, `#audit-received`, `#audit-ratio`.
@@ -374,7 +375,7 @@ a cross-cutting checklist over T5–T11, not a separate feature.
 
 ### Acceptance criteria
 - [x] All three query types are present and executed in the running app
-- [ ] Each is demonstrable to the auditor in DevTools network tab (manual)
+- [x] Each is demonstrable to the auditor in DevTools network tab (manual)
 
 ### Notes
 The nested query was added as a real feature (Recent projects) rather than a
@@ -460,7 +461,7 @@ query XpTransactions($limit: Int = 500, $offset: Int = 0) {
 - [x] Bonus: native SVG title tooltips on sampled points, including the final total
 
 ### Acceptance criteria
-- [ ] The final cumulative value equals the total XP shown in T6 (manual — see T13)
+- [x] The final cumulative value equals the total XP shown in T6 (manual — see T13)
 - [x] The trend visibly tracks the chronological transactions
 
 ### Implementation notes
@@ -502,7 +503,7 @@ query AuditTotals($limit: Int = 500, $offset: Int = 0) {
 
 ### Acceptance criteria
 - [x] Two bars: Done = sum(up), Received = sum(down)
-- [ ] Values match the Done/Received figures in T7 (manual — see T13)
+- [x] Values match the Done/Received figures in T7 (manual — see T13)
 
 ### Implementation notes
 - `drawAuditGraph()` (called by `loadStatsSection()`) renders into `#graph-audit`.
@@ -559,7 +560,7 @@ for defects rather than polish. Fixed on branch `chbaikas/fixes`:
 
 ## Ticket 12 — Hosting / Deployment
 
-- **Status:** IN PROGRESS — deployed; authenticated hosted verification remains open
+- **Status:** DONE — deployed and authenticated hosting verified
 - **Priority:** P0
 - **Audit mapping:**
   *"Try to access the profile from the host domain → Is the profile
@@ -571,12 +572,12 @@ Publish the site so the auditor can open it at a public URL.
 ### Tasks
 - [x] Choose a host (GitHub Pages, `main / root`)
 - [x] Deploy the static site
-- [ ] Verify the deployed login flow works against the live endpoints
+- [x] Verify the deployed login flow works against the live endpoints
 - [x] Record the live URL in `README.md`
 
 ### Acceptance criteria
 - [x] The profile is reachable at a public URL
-- [ ] Login, all sections, graphs, and logout work on the hosted version
+- [x] Login, all sections, graphs, and logout work on the hosted version
 - [x] Record the live URL in `README.md`
 
 ### Deployment verification — 2026-10-26
@@ -601,9 +602,11 @@ Publish the site so the auditor can open it at a public URL.
   allowed authorization/content-type and the actual Pages origin. Browsers
   could read sign-in 401 and GraphQL invalid-token rejection (HTTP 200),
   establishing CORS for these requests, not successful authentication.
-- User confirmed no real Zone01 session is available. Successful username/email
-  login, dashboard sections/graphs, authenticated refresh/logout and independent
-  source-data comparisons remain unverified; T12 stays open.
+- Subsequent manual username and email logins both returned HTTP 200. Required
+  and bonus sections, all three graphs, authenticated refresh and full logout
+  cleanup passed. An independent new tab stayed logged out. Live chart/modal
+  labels fit at 320/375/768/1280/1920px; mouse/Enter/Space activation,
+  Escape/focus restoration and reduced motion passed. T12 is DONE.
 
 ### Deployment contents
 No build is required. The site is plain static files with
@@ -660,11 +663,11 @@ at the folder, no build command, no output directory.
 ### After deploying — verify on the live URL, not localhost
 
 - [x] The login page loads over **https**
-- [ ] Log in with valid credentials → dashboard appears
-- [ ] All three required sections show real values
-- [ ] Both required graphs render, plus the bonus third
-- [ ] Logout returns to the login view
-- [ ] Reload while logged in → still on the dashboard
+- [x] Log in with valid credentials → dashboard appears
+- [x] All three required sections show real values
+- [x] Both required graphs render, plus the bonus third
+- [x] Logout returns to the login view
+- [x] Reload while logged in → still on the dashboard
 - [x] Paste the URL into `README.md` under **Live URL**
 
 If login works locally but fails on the live URL, check the browser console for
@@ -675,7 +678,7 @@ so verify that the platform allows the hosted origin and its CORS preflight.
 
 ## Ticket 13 — Data Accuracy Verification (GraphiQL cross-check)
 
-- **Status:** IN PROGRESS
+- **Status:** DONE
 - **Priority:** P0
 - **Audit mapping:**
   *"Verify the accuracy of the content … using GraphiQL"* and
@@ -692,16 +695,17 @@ This is the step an auditor will literally perform, so do it first ourselves.
 - [x] Confirm both graphs (T10/T11) agree with the card values they mirror
 - [x] Document the current path filters and computation rules for each value;
       remove stale account totals and unscoped aggregate comparisons
-- [ ] Run those queries in the **platform's** GraphiQL and compare
+- [x] Run those queries in the **platform's** GraphiQL and compare
       *(the only step that needs live credentials)*
-- [ ] Verify the account's cursus root, output numeric scalar types/JSON values,
+- [x] Verify the account's cursus root, output numeric scalar types/JSON values,
       and authenticated user row permissions using the added platform checks
       in [data-verification.md](./data-verification.md).
 
 ### Acceptance criteria
 - [x] No discrepancy between the UI's own values (cards vs graphs vs arithmetic)
-- [ ] No discrepancy between the UI and GraphiQL for any displayed value
-- [ ] Every checkbox in [data-verification.md](./data-verification.md) is ticked
+- [x] No discrepancy between the UI and GraphiQL for any displayed value
+- [x] Every applicable live-data checkbox in [data-verification.md](./data-verification.md)
+      is verified; conditional fixture-only cases are explicitly labelled
 
 ### Implementation notes
 - [data-verification.md](./data-verification.md) mirrors the current named
@@ -716,12 +720,25 @@ This is the step an auditor will literally perform, so do it first ourselves.
   marking this ticket DONE. Do not reuse historical XP totals as a baseline.
 
 ### Manual verification (needs live session)
-- [ ] Work through [data-verification.md](./data-verification.md) end to end
+- [x] Work through [data-verification.md](./data-verification.md) end to end
 
-2026-10-26: user confirmed no real Zone01 session is available. The platform's
-GraphiQL was not used; identity, cursus scope, numeric types, row permissions
-and all real values remain unverified. Synthetic test success and public
-hosting do not complete T13.
+2026-10-26: the user manually authenticated in the live application and the
+platform's own GraphiQL. User 6844 / `chbaikas` matches. All source pages were
+read to an empty final page; a 737-row unfiltered transaction check exercised
+multiple nonempty pages and confirmed user scope. Result rows with null
+`userId` were linked through current-user group membership (35/35).
+
+Independent totals: 53 kept XP rows from 279 raw cursus rows → **1,218,125 B**;
+Done **790,353 B**, Received **1,046,210 B**, ratio **0.8**; **19** skill maxima;
+**35** recent results; **52** project XP groups. All 53 XP polyline points and
+all expanded project bar values match. Authenticated introspection and JSON
+confirmed numeric IDs/amounts/grades and string dates. The platform Module
+confirmed `/athens/div-01`, level 31 and 1.22 MB. Custom playground User/XP/Audit
+responses match the platform, and its validation/shortcuts/reset pass.
+
+Full queries, row counts, scalar names, comparisons and live browser evidence
+are in [data-verification.md](./data-verification.md#live-account-results--2026-10-26).
+No mismatch or production code change was required. T13 is DONE.
 
 ---
 
@@ -773,8 +790,8 @@ Add genuinely useful extra data beyond the three required sections.
 - [x] Skills card lists real skills with plausible percentages — verified
       2026-08-30: 19 skills from Prog 75% down to Sys admin 10%, correctly
       ordered, names formatted, "Show 13 more" toggle working
-- [ ] Values match `transaction(where: { type: { _like: "skill_%" } })` in
-      GraphiQL, taking the max `amount` per type *(needs GraphiQL)*
+- [x] Values match `transaction(where: { type: { _like: "skill_%" } })` in
+      platform GraphiQL, taking the max `amount` per type (2026-10-26)
 
 ---
 
@@ -819,7 +836,7 @@ query XpTransactions($limit: Int = 500, $offset: Int = 0) {
 
 ### Acceptance criteria
 - [x] A third distinct SVG graph is present
-- [ ] Values are accurate vs GraphiQL (manual — see data-verification.md)
+- [x] Values are accurate vs GraphiQL (manual — see data-verification.md)
 
 ### Implementation notes
 - `drawProjectsGraph()` runs from `loadStatsSection()` alongside T10/T11.
@@ -846,8 +863,8 @@ query XpTransactions($limit: Int = 500, $offset: Int = 0) {
   the zoom trigger, so it does not open the modal.
 
 ### Manual verification (needs live session)
-- [ ] Graph lists real projects with plausible XP values
-- [ ] Totals match the same query in GraphiQL, summed per object ID
+- [x] Graph lists real projects with plausible XP values
+- [x] Totals match the same query in GraphiQL, summed per object ID
 
 ---
 
@@ -893,11 +910,11 @@ with the user's JWT.
   can't linger into the next.
 
 ### Manual verification (needs live session)
-- [ ] A valid query returns JSON matching the dashboard
-- [ ] A malformed query shows the GraphQL error rather than a blank pane
-- [ ] Invalid variables JSON is reported before any request is sent
-- [ ] Ctrl+Enter runs the query
-- [ ] After logout, the result pane is cleared
+- [x] A valid query returns JSON matching the dashboard
+- [x] A malformed query shows the GraphQL error rather than a blank pane
+- [x] Invalid variables JSON is reported before any request is sent
+- [x] Ctrl+Enter runs the query
+- [x] After logout, the result pane is cleared
 
 ---
 
@@ -1011,9 +1028,10 @@ At the time of this historical refactor, no automated tests existed; the app was
 - served over HTTP, all 25 modules return 200 `text/javascript`
 
 ### Manual verification
-- [ ] `make run`, log in — every card populates and all three graphs draw
-- [ ] DevTools Network: six query definitions, with shared paginated XP/audit requests
-- [ ] Log out, log back in — everything repopulates
+- [x] Serve over HTTP (live site or `make run`), log in — every card populates
+      and all three graphs draw
+- [x] DevTools Network: six query definitions, with shared paginated XP/audit requests
+- [x] Log out, log back in — everything repopulates
 
 
 ## Repository review — 2026-10-22
@@ -1083,7 +1101,7 @@ zero runtime dependencies, hand-written SVG, and no build step.
       import successfully in Node; Chromium loads the entry module and its assets. Temporary browser
       scripts/screenshots stay outside the repository.
 
-### Genuinely open
+### Open at the 2026-10-22 review — resolved 2026-10-26
 - **T13:** no real platform account/session was supplied. Verify the live schema,
       every displayed source value, permissions, and dataset completeness using
       [data-verification.md](./data-verification.md). Synthetic data is not proof
@@ -1176,4 +1194,5 @@ checks pass. **14 groups pass in Chromium and Firefox**, including effective
 font/bounds checks in dashboard and modal at 320/375/768/1280/1920px and keyboard
 focus. No unexpected page/console errors, CSP violations or missing assets;
 injected transport failures are identified explicitly by the harness. Screenshots
-used for visual inspection stay outside the repository. **T12 and T13 remain open.**
+used for visual inspection stay outside the repository. T12 and T13 were open
+at that review; both are now complete as recorded above.

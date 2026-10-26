@@ -71,7 +71,7 @@ Requires Node 22.7 or newer for native ES module detection without package
 metadata. The tests import the same modules the browser loads and stub API
 responses; they do not contact the platform or require credentials.
 
-Current audit status and remaining hosting/live-account checks are in the
+Current audit status and live verification evidence are in the
 [ticket tracker](docs/ticket-tracker.md#where-the-project-stands-2026-10-26).
 
 ## Sessions and data scope
@@ -98,7 +98,8 @@ session; HTTP 401/explicit JWT errors end it.
 Use a current browser with native ES modules, `AbortSignal.timeout()`,
 `AbortSignal.any()` and `ResizeObserver`. All three request paths have a 12-second
 budget, including body reads; logout aborts pending work. Live schema/data and
-successful hosted authentication still need the checks in the linked tracker.
+hosted authentication were verified with a real account on 2026-10-26; see the
+linked tracker and [data verification record](docs/data-verification.md#live-account-results--2026-10-26).
 
 ## Deployment
 
@@ -119,9 +120,12 @@ On 2026-10-26, Chromium and Firefox verified the hosted login page, all 31
 HTML/CSS/JavaScript files against local source, module MIME types, subpath reload,
 invalid credentials, keyboard focus and login layout at 320–1920px. Real API
 preflights and rejection responses were accessible from the hosted origin.
-Successful authentication, authenticated refresh/logout, live dashboard/graphs
-and independent platform GraphiQL comparisons remain pending a real account.
-T12 and T13 remain open until those checks pass.
+The subsequent real-account pass verified username and email authentication,
+authenticated refresh, logout cleanup, all dashboard sections and graphs, and
+the custom playground. Independent queries in the platform's own GraphiQL
+matched identity, XP, audits, skills, recent results, level and graph values.
+The platform's Module stats confirmed `/athens/div-01`, level 31 and 1.22 MB XP.
+T12 and T13 are **DONE**. No production code changes were required.
 
 ### Netlify / Vercel / any static host
 
