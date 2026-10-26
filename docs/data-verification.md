@@ -1,326 +1,325 @@
 # Data Accuracy Verification (Ticket 13)
 
-Pre-audit cross-check: every number the dashboard shows, next to the exact
-GraphiQL query an auditor would run to confirm it.
+Last reviewed: **2026-10-22**. Code and browser checks with synthetic data pass;
+**live GraphiQL verification remains open**. No real account was used for this
+review. Do not treat old account totals as expected values for today's data.
 
-The auditor's questions this answers (see [audit-readme.md](./audit-readme.md)):
+## Procedure
 
-> *Verify the accuracy of the content/information in the three Sections using **GraphiQL**.*
-> *Try to validate the accuracy of the information presented in the graphs.*
+1. Run `make run` and log in with your own Zone01 account.
+2. Open the platform's GraphiQL at `https://platform.zone01.gr/graphiql/`,
+   authenticated as the same user. The app's playground helps inspect queries,
+   but final verification must use an independent client.
+3. Run the queries below. They mirror `js/data/queries.js`; if `CURSUS_ROOT`
+   changes in `js/config.js`, replace `/athens/div-01` here too.
+4. Record date, browser, and discrepancies below. Never record a password or JWT.
 
----
+The JWT scopes rows to the authenticated user. Confirm that `{ user { id login } }`
+returns your identity before comparing data. XP uses decimal units:
+`1234567` bytes → `1.23 MB`, `12345` → `12.35 kB`, values below 1000 → bytes.
+Dates display as DD/MM/YYYY in the browser's local timezone.
 
-## How to run this check
+## Platform assumptions to verify before closing T13
 
-1. Serve the app and log in:
-   ```bash
-   make run   # http://localhost:8042
-   ```
-2. Open a GraphiQL. Either works:
-   - **The app's own playground** (Ticket 16) — expand the **GraphiQL** card at
-     the bottom of the dashboard. Its example buttons load the exact queries
-     behind each section, so most checks below are one click plus Run.
-   - The platform's GraphiQL at
-     `https://platform.zone01.gr/api/graphql-engine/v1/graphql`, logged in as
-     the same user — use this to confirm the app isn't validating itself.
-3. For each check below, run the query, compute the expected value, and compare
-   it with the value on the dashboard. Tick the box when they match.
+- [ ] Confirm the account's main cursus really uses `/athens/div-01`. The
+      requirements do not mandate the Athens path; the configured scope came
+      from the earlier platform XP-board comparison (commit `3ea3afa`). USER
+      currently returns only `id` and `login`; the other queries already filter
+      XP, level and recent results by the configured root. These responses cannot
+      deterministically discover another account's main cursus. Keep this
+      configuration until live event/schema evidence supports a different rule;
+      an empty filtered result alone does not establish that the account has no XP.
+- [ ] Confirm the platform's row permissions return only the authenticated user's
+      data. Compare USER identity with the current account; inspect `userId` on
+      the same transaction/result rows in the platform GraphiQL. Production
+      queries rely on server permissions rather than an explicit user-ID filter.
+      Do not query arbitrary other users as a substitute for permission evidence.
+- [ ] Inspect the real output scalar types and JSON representations: `user.id`,
+      `transaction.id`, `transaction.objectId`, `transaction.amount`, `object.id`,
+      `result.id` and `result.grade`. Include XP, level, skills and up/down audit
+      transactions. The query variables' `Int` declarations describe inputs and
+      do not prove output types. Record scalar names and `typeof` values without
+      recording any token or password.
 
-All queries are scoped to the logged-in user automatically — the JWT decides
-which rows Hasura returns, so no user id filter is needed.
+Use the authenticated schema explorer, or the metadata query below if
+introspection is enabled. If a type name differs, inspect the actual return type
+in the explorer. A denied introspection query leaves this check open.
 
-> **XP formatting.** The platform stores XP in bytes; the UI renders it with
-> `formatXp()` — `MB` (÷1 000 000, 2dp) at ≥1 000 000, `kB` (÷1 000, 2dp) at
-> ≥1 000, otherwise raw bytes. So GraphiQL's raw sum of `1234567` displays as
-> `1.23 MB`. Compare after applying the same conversion.
+```graphql
+query AuditOutputTypes {
+  userType: __type(name: "user") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+  transactionType: __type(name: "transaction") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+  resultType: __type(name: "result") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+  objectType: __type(name: "object") {
+    fields { name type { kind name ofType { kind name } } }
+  }
+}
+```
 
----
+Strict validation is unchanged: paginated row/user IDs must be integer numbers;
+transaction amounts must be finite numbers (`null` contributes zero). Numeric
+grades determine pass/fail; null/non-numeric grades display pending. No schema
+snapshot or authenticated session was available in this review, and the linked
+platform GraphiQL page could not be retrieved by the browsing tool. An anonymous
+metadata POST returned HTTP 200 with `data.__type: null` for `transaction`; this
+does not reveal the authenticated role's output types. The
+[official database description](https://github.com/01-edu/public/blob/master/docs/db/database-structure.md)
+lists fields without specifying their GraphQL scalar serialization. It also
+describes users belonging to multiple events, so event membership alone does not
+select a main cursus. The requirements' numeric examples support the current
+assumption but do not prove this platform's serialization. Do not add permissive
+string coercion without evidence from the real schema and response bodies.
 
-## Check 1 — Section 1: User identification (T5)
+## Pagination
 
-**UI:** "User" card → *Login*, *User ID*.
+All list queries below have `$limit` / `$offset` variables with defaults 500/0.
+Run the first page, then repeat with `{ "offset": N, "limit": 500 }`, where N
+is the **number of raw rows already received**, until an empty page is returned.
+Do not stop just because a page contains fewer than 500 rows: the platform can
+cap page size. Combine pages before applying the filters/calculations below.
+Stable row IDs break ordering ties. If data changes during loading and repeats
+an ID, the app reports an error instead of double-counting; repeat the check
+with stable source data. These requests are not an atomic database snapshot.
+
+The JWT lives only in sessionStorage; tabs have independent sessions. Startup,
+login and logout delete the former localStorage credential without migrating it.
+
+## 1. User (T5)
 
 ```graphql
 { user { id login } }
 ```
 
-- [ ] `login` in GraphiQL == *Login* on the dashboard
-- [ ] `id` in GraphiQL == *User ID* on the dashboard
+- [ ] Login and User ID match the response.
 
----
-
-## Check 2 — Section 2: Total XP (T6)
-
-**UI:** "XP" card → *Total XP*.
+## 2. XP total, history and cumulative graph (T6/T10)
 
 ```graphql
-{ transaction(where: { type: { _eq: "xp" } }) { amount } }
-```
-
-Expected value = **sum of every `amount`**, then byte-formatted.
-
-- [ ] Sum of `amount` (formatted) == *Total XP* on the dashboard
-- [ ] The result set contains only `xp` rows — no `level` / `up` / `down` noise
-      (sanity check: run `{ transaction { type } }` and confirm the filtered
-      query returns strictly fewer rows)
-
----
-
-## Check 3 — Section 3: Audit ratio (T7)
-
-**UI:** "Audit ratio" card → *Done*, *Received*, *Ratio*.
-
-```graphql
-{ transaction(where: { type: { _in: ["up", "down"] } }) { type amount } }
-```
-
-Expected values:
-
-| UI field   | Computed from GraphiQL                     |
-| ---------- | ------------------------------------------ |
-| *Done*     | sum of `amount` where `type == "up"`       |
-| *Received* | sum of `amount` where `type == "down"`     |
-| *Ratio*    | `Done / Received`, rounded to **1 decimal** |
-
-- [ ] *Done* matches sum(up), byte-formatted
-- [ ] *Received* matches sum(down), byte-formatted
-- [ ] *Ratio* matches Done ÷ Received to 1dp
-- [ ] *Ratio* also matches the audit ratio shown on the platform profile page
-
----
-
-## Check 4 — Recent projects (nested query, T8)
-
-**UI:** "Recent projects" card → list of `name — pass|fail`.
-
-```graphql
-{
-  result(
-    where: { object: { type: { _eq: "project" } } }
-    order_by: { createdAt: desc }
-    limit: 5
+query XpTransactions($limit: Int = 500, $offset: Int = 0) {
+  transaction(
+    limit: $limit
+    offset: $offset
+    where: {
+      type: { _eq: "xp" }
+      path: { _like: "/athens/div-01/%" }
+    }
+    order_by: [{ createdAt: asc }, { id: asc }]
   ) {
-    grade
-    object { name type }
+    id
+    objectId
+    amount
+    createdAt
+    path
+    object {
+      id
+      name
+    }
   }
 }
 ```
 
-- [ ] The listed names match `object.name`, in the same (newest-first) order
-      (5 shown; "Show N more" reveals the rest, up to the query's `limit: 30`)
-- [ ] Each item's status matches the rule `grade >= 1 → pass`, otherwise `fail`
-- [ ] Every returned `object.type` is `project`
+Apply the app's `isCursusPath()` rule before computing totals: keep rows under
+`/athens/div-01/`, excluding rows with a `piscine` or `piscine-*` segment
+**before the last path segment**. A Piscine roll-up itself is kept; its nested
+exercises are excluded to avoid double counting. Exam folders remain included
+regardless of their names. Verify this scope against the platform's XP board.
 
----
+- [ ] Sum of kept `amount` values, formatted as above, equals Total XP.
+- [ ] Number of kept rows equals Transactions.
+- [ ] History shows those same rows newest first, with names from `object.name`
+      (path slug fallback when no object), and correct XP per row.
+- [ ] Show more / Show less reveals and re-collapses all history rows.
+- [ ] Total and history agree with the platform's XP board.
+- [ ] Graph's point values are the running sums of kept rows, oldest first.
+- [ ] Final point tooltip equals Total XP; first/last dates match the kept rows.
+- [ ] Y-axis maximum is the maximum running total (including zero), which can
+      exceed the final total if there are negative corrections. Negative running
+      totals fit the graph too. A rise is expected only for positive XP rows.
+- [ ] Fewer than two kept rows shows the insufficient-data placeholder.
 
-## Check 4b — Skills breakdown (T14, bonus)
+Do not use an unfiltered `transaction_aggregate(type: "xp")` to verify this
+figure: it includes other cursus paths and double-counted Piscine exercises.
 
-**UI:** "Skills" card → up to 6 rows of `Name` + bar + `NN%`.
+## 2b. Current level
 
 ```graphql
-{
+query Level($limit: Int = 500, $offset: Int = 0) {
   transaction(
-    where: { type: { _like: "skill_%" } }
-    order_by: { amount: desc }
+    limit: $limit
+    offset: $offset
+    where: {
+      type: { _eq: "level" }
+      path: { _like: "/athens/div-01/%" }
+    }
+    order_by: [{ amount: desc }, { id: asc }]
   ) {
+    id
+    amount
+    path
+  }
+}
+```
+
+- [ ] Apply the same path rule as Check 2. Maximum kept `amount` equals Current
+      level; no rows displays `—`. Do not sum level transactions or limit the
+      response before filtering.
+- [ ] Level agrees with the platform's main cursus level.
+
+## 3. Audit card and bars (T7/T11)
+
+```graphql
+query AuditTotals($limit: Int = 500, $offset: Int = 0) {
+  transaction(
+    limit: $limit
+    offset: $offset
+    order_by: { id: asc }
+    where: { type: { _in: ["up", "down"] } }) { id type amount }
+}
+```
+
+- [ ] Done equals sum of `up`; Received equals sum of `down`, byte-formatted.
+- [ ] Ratio equals Done / Received to one decimal, or `—` when Received is zero.
+- [ ] Figures agree with the platform profile. Audit totals span all paths.
+- [ ] Audit graph labels match the card; bar heights have the same proportion.
+- [ ] Both totals zero shows the empty-data placeholder.
+
+## 4. Recent projects (T8)
+
+```graphql
+query RecentProjects($limit: Int = 500, $offset: Int = 0) {
+  result(
+    limit: $limit
+    offset: $offset
+    where: {
+      path: { _like: "/athens/div-01/%" }
+      object: { type: { _eq: "project" } }
+    }
+    order_by: [{ createdAt: desc }, { id: desc }]
+  ) {
+    id
+    grade
+    path
+    object {
+      name
+      type
+    }
+  }
+}
+```
+
+Read pages until there are 60 results passing the same path rule as Check 2,
+or the server returns an empty page. Keep the latest 60 **after** filtering.
+The app shows five initially; Show more reveals the remaining kept results.
+This is recent activity, not a complete project archive.
+
+- [ ] Names and ordering match kept `object.name` values, newest first.
+- [ ] Numeric `grade >= 1` displays pass; lower numeric grades display fail.
+      A missing/non-numeric grade displays pending.
+- [ ] Only project objects under the cursus are shown; nested Piscine rows are
+      excluded. No kept results shows No projects yet.
+
+## 4b. Skills (T14, bonus)
+
+```graphql
+query Skills($limit: Int = 500, $offset: Int = 0) {
+  transaction(
+    limit: $limit
+    offset: $offset
+    where: { type: { _like: "skill_%" } }
+    order_by: [{ amount: desc }, { id: asc }]
+  ) {
+    id
     type
     amount
   }
 }
 ```
 
-Expected: for each distinct `type`, its **highest** `amount` (a skill is
-re-recorded as it improves, so the max is the current level — not the sum). The
-card shows the top 6 by that value.
+- [ ] Each percentage equals the maximum `amount` for that transaction type.
+- [ ] Skills are sorted descending, with six initially visible.
+- [ ] Names are readable (`skill_back-end` → Back end), bars are proportional
+      (width capped to 0–100%), and Show more reveals the remaining skills.
+- [ ] No rows displays No skill data available.
 
-- [x] The listed skills are the highest-scoring `skill_*` types, descending —
-      19 skills, 75% down to 10%, correctly ordered with ties preserved
-- [ ] Each percentage == the max `amount` for that type *(needs GraphiQL)*
-- [x] Bar widths look proportional to their percentages
-- [x] Names render readably — `skill_back-end` → `Back end`,
-      `skill_sys-admin` → `Sys admin`
-- [x] "Show 13 more" / "Show less" reveals and re-collapses the overflow
-
----
-
-## Check 5 — Graph 1: cumulative XP over time (T10)
-
-**UI:** Statistics → left graph (line chart). Click it to zoom for readable labels.
+## 5. XP by project (T15, bonus)
 
 ```graphql
-{
+query XpTransactions($limit: Int = 500, $offset: Int = 0) {
   transaction(
-    where: { type: { _eq: "xp" } }
-    order_by: { createdAt: asc }
-  ) {
-    amount
-    createdAt
-  }
-}
-```
-
-- [ ] The **Y-axis top label** equals the running total of all `amount` —
-      i.e. the *same* number as *Total XP* in Check 2
-- [ ] The **left X-axis label** equals the first row's `createdAt` (DD/MM/YYYY)
-- [ ] The **right X-axis label** equals the last row's `createdAt` (DD/MM/YYYY)
-- [x] The line only ever rises (cumulative) — confirmed on the rendered graph
-      (monotonic, no dips)
-
----
-
-## Check 6 — Graph 2: audit Done vs Received (T11)
-
-**UI:** Statistics → right graph (bar chart).
-
-Same query as Check 3 (the app runs it once and shares the totals between the
-section and the graph, via `fetchAuditTotals()`).
-
-- [ ] *Done* bar label == the *Done* value in Check 3 (same number, same format)
-- [ ] *Received* bar label == the *Received* value in Check 3
-- [x] Bar heights are proportional: Done/Received ≈ 0.82, matching the rendered
-      bar heights
-
----
-
-## Check 7 — Graph 3: XP by project (T15, bonus)
-
-**UI:** Statistics → "XP by project" (full-width horizontal bars).
-
-```graphql
-{
-  transaction(
+    limit: $limit
+    offset: $offset
     where: {
       type: { _eq: "xp" }
-      object: { type: { _eq: "project" } }
+      path: { _like: "/athens/div-01/%" }
     }
-    order_by: { amount: desc }
+    order_by: [{ createdAt: asc }, { id: asc }]
   ) {
-    amount
+    id
     objectId
-    object { id name }
+    amount
+    createdAt
+    path
+    object {
+      id
+      name
+    }
   }
 }
 ```
 
-Expected: sum `amount` **per `object.id`** (a project can pay out more than
-once), then the top 8 by that total. Grouping is by ID rather than by name on
-purpose: two distinct projects can carry the same display name, and rows whose
-`object` is null have no name to group on — either case would merge unrelated
-projects into a single bar. `objectId` is the fallback key when the nested
-`object` is missing; the name is used only as the bar's label.
+Apply the same path rule as Check 2. Group by `object.id`, falling back to
+`objectId`; sum each group's `amount`. Names are labels, **not grouping keys**.
+Rows with neither object ID stay separate. Transaction IDs still identify pages.
+This graph includes Piscine roll-ups and
+exam XP so it covers the same rows as Total XP despite its short title.
+It uses the same cached XP rows, without another query or a different snapshot.
 
-- [ ] The listed projects are the 8 highest XP earners, longest bar first
-      ("Show N more" redraws the graph with every project)
-- [ ] Each value label == that project's summed XP, byte-formatted
-- [ ] Bar lengths are proportional to their values
-- [ ] The listed projects all appear in the platform's own project list
+- [ ] Groups are sorted by total XP descending; eight appear initially.
+- [ ] Each label/tooltip and proportional bar matches its group's total.
+- [ ] Different objects with the same name remain separate bars.
+- [ ] Show more reveals all groups; the sum of **all** bars equals Total XP.
+- [ ] No kept rows displays No project XP yet.
 
----
+## Session and browser checks before audit
 
-## Cross-section consistency
+For reproducible synthetic regressions, see [browser-verification.md](browser-verification.md).
+They do not replace the real-account checkboxes below.
 
-These must hold within the UI alone, with no GraphiQL needed — a fast
-regression check after any change:
+- [ ] Valid username/password and email/password both reach the dashboard.
+- [ ] Wrong password shows Invalid credentials and stays on login.
+- [ ] Refresh preserves the session; `sessionStorage.token` has no wrapper quotes.
+- [ ] Logout clears token, cards, lists, graphs, zoom overlay and playground.
+- [ ] Expired/revoked token returns to login with a readable explanation.
+- [ ] Late requests from a previous session cannot render or end a new session.
+- [ ] A new independent tab has its own login; logout affects the current tab.
+      Refresh in the same tab preserves its unexpired session.
+- [ ] Dashboard requests contain six query definitions: User, XP, Level, Audits,
+      RecentProjects and Skills. Each list is paginated, including a terminal
+      empty page (unless RecentProjects already has 60 kept rows). Small nonempty
+      datasets need 11 POSTs; larger datasets need more. XP and audit consumers
+      share promises. Playground requests are additional.
+- [ ] Keyboard zoom / Escape / focus return and Show more controls work.
+- [ ] Only rendered graphs have zoom button semantics and Tab stops; loading,
+      empty and error placeholders do not. Check Enter and Space on loaded charts.
+- [ ] Chart and modal labels remain readable at 320/375/768/1280/1920px, with
+      no clipped labels or page overflow. Reduced-motion dots appear immediately.
+- [ ] At 360px and desktop widths, content fits without horizontal overflow.
+- [ ] Playground runs valid queries, displays malformed-query errors, rejects
+      invalid/non-object variables, and supports Ctrl/Cmd+Enter.
 
-- [x] XP graph's Y-max label == "XP" card's *Total XP* — both `2.19 MB`
-- [x] Audit graph's bar labels == "Audit ratio" card's *Done* / *Received* —
-      both `790.35 kB` / `968.59 kB`
-- [x] *Ratio* == *Done* ÷ *Received* to 1dp — 790.35 ÷ 968.59 = 0.8159… → `0.8`
+## Verification record
 
----
+| Date | Environment | Result |
+| --- | --- | --- |
+| 2026-10-22 | Local Chromium, intercepted synthetic API responses | Eleven scenario groups: initial/login failures/success, UTF-8 credentials, server/network/query errors, timeout recovery (shortened test budget), paginated totals, three SVGs, empty/single/negative/zero/large/Unicode datasets, modal keyboard/inert/focus cleanup, A→B and pending-request races, playground envelope/variables/shortcuts, refresh and simulated project-subpath hosting. Widths 320/360/560/1280px. No unexpected console errors, CSP violations or missing local assets. A real streamed body timeout was also verified against a temporary local HTTP server. This does not prove live schema, real source data or platform CORS. |
+| 2026-10-22, independent-audit fixes | Chromium + Firefox, committed `tests/browser/run.cjs` | All 14 scenario groups pass, including the original eleven, responsive chart/modal labels at 320/375/768/1280/1920px, placeholder semantics, focus/reset, reduced motion and real streamed body timeout. Synthetic responses still do not close T13. |
+| Pending | Real Zone01 account + independent platform GraphiQL | Complete all live checks above, then update T13. |
+| Pending | Public HTTPS deployment | Complete T12 and record the URL in README.md. |
 
-## Result
-
-### Internal review — 2026-08-30
-
-Checked against a logged-in dashboard render (user `chbaikas`, id `6844`) plus a
-read of the query/render code under `js/` (then a single `js/app.js`,
-since split into ES modules). **No discrepancies found.**
-
-Values seen: Total XP `2.19 MB` · Done `790.35 kB` · Received `968.59 kB` ·
-Ratio `0.8` · XP graph spanning 18/11/2024 → 25/08/2026.
-
-Everything that can be verified without live GraphiQL access passes:
-
-- **Ratio arithmetic** — 790.35 ÷ 968.59 = 0.8159…, rendered `0.8` at 1dp. Also
-  matches the ratio on the platform profile (confirmed under T7).
-- **Card ↔ graph agreement is structural, not coincidental.** The audit card
-  (`loadGradesSection`) and the bar chart (`drawAuditGraph`) both read the same
-  `fetchAuditTotals()` result, so the two can never drift. Total XP and the XP
-  graph's Y-max come from the same `xp` query but are computed independently —
-  a `reduce` over `amount` vs. the last point of the running total — so their
-  agreement at `2.19 MB` is a genuine cross-check of the cumulative logic.
-- **Graph shape** — the XP line is monotonically rising, as a cumulative series
-  must be; the bars are proportional (0.82) to their labelled values.
-- **Byte formatting** — `formatXp()` renders ≥1 000 000 as MB and ≥1 000 as kB,
-  consistent across cards, bar labels and the Y-axis label.
-
-### Remaining — needs live GraphiQL
-
-The checks above confirm the UI is *self*-consistent. What is still open is
-whether those numbers match the **source rows**. If a query had a wrong filter,
-every displayed value would be equally consistent and equally wrong.
-
-GraphiQL returns **raw bytes**, so here are the values to compare against —
-already converted, so this is a comparison rather than arithmetic:
-
-| Run this in GraphiQL | Expected raw result |
-| --- | --- |
-| sum of `amount` where `type = "xp"` | between **2,185,000** and **2,195,000** (displays `2.19 MB`) |
-| sum of `amount` where `type = "up"` | ≈ **790,350** (displays `790.35 kB`) |
-| sum of `amount` where `type = "down"` | ≈ **968,590** (displays `968.59 kB`) |
-| earliest xp `createdAt` | **18/11/2024** |
-| latest xp `createdAt` | **25/08/2026** |
-| `790350 / 968590` | **0.816** → displays `0.8` |
-
-Plus the non-numeric ones:
-
-- the 5 recent project names, newest first, and their pass/fail from `grade >= 1`
-- each skill's percentage == the **max** `amount` for that `skill_*` type
-- the 8 project bars == XP **summed per** `object.name`
-
-**Do this in the platform's own GraphiQL, not the app's playground.** The app
-running its own queries and agreeing with itself proves nothing — the point is
-to check it against an independent client.
-
-#### One query for all the totals
-
-Hasura can do the summing, so the three XP figures come back in a single run
-with no manual arithmetic:
-
-```graphql
-{
-  xp: transaction_aggregate(where: { type: { _eq: "xp" } }) {
-    aggregate { sum { amount } count }
-  }
-  up: transaction_aggregate(where: { type: { _eq: "up" } }) {
-    aggregate { sum { amount } }
-  }
-  down: transaction_aggregate(where: { type: { _eq: "down" } }) {
-    aggregate { sum { amount } }
-  }
-}
-```
-
-Compare `xp.sum.amount`, `up.sum.amount` and `down.sum.amount` to the table
-above. And for the two dates:
-
-```graphql
-{
-  first: transaction(
-    where: { type: { _eq: "xp" } }
-    order_by: { createdAt: asc }
-    limit: 1
-  ) { createdAt }
-  last: transaction(
-    where: { type: { _eq: "xp" } }
-    order_by: { createdAt: desc }
-    limit: 1
-  ) { createdAt }
-}
-```
-
-If `transaction_aggregate` is not exposed on this platform, fall back to the
-plain queries in Checks 2 and 3 and sum the rows yourself.
-
-Ticket 13 passes when every box above is ticked with no discrepancy.
+T13 is complete only after the source-row comparisons pass with a real account.

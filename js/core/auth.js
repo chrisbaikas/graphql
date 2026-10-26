@@ -1,11 +1,18 @@
 /* ---------------- AUTH ---------------- */
 
-import { SIGNIN_URL, TOKEN_KEY } from "../config.js";
+import { SIGNIN_URL } from "../config.js";
+import { fetchWithTimeout, readResponse, TimeoutError } from "./http.js";
+import { clearToken, setToken } from "./storage.js";
+import { isTokenExpired } from "./jwt.js";
+import { currentSession, isCurrentSession, sessionSignal } from "./session.js";
 import { showError } from "../ui/errors.js";
 import { resetProfile, showDashboard, showLogin } from "../ui/views.js";
 
+let activeLogin = null;
+
 export async function login(event) {
   if (event) event.preventDefault();
+  if (activeLogin) return;
 
   // Works for both "username:password" and "email:password" — the platform
   // accepts either identifier in the Basic auth header.
@@ -22,29 +29,30 @@ export async function login(event) {
   }
 
   const submitBtn = document.getElementById("login-btn");
+  const session = currentSession();
+  const attempt = {};
+  activeLogin = attempt;
   if (submitBtn) submitBtn.disabled = true;
 
   try {
-    // Inside the try: basicAuth() can throw on an unencodable password, and a
-    // thrown encoding error must reach showError() like any other failure
-    // rather than escaping as an uncaught exception with the button stuck.
+    // Credential validation belongs inside the error/button cleanup path.
     const credentials = basicAuth(identifier, password);
 
     let response;
     try {
-      response = await fetch(SIGNIN_URL, {
+      response = await fetchWithTimeout(SIGNIN_URL, {
         method: "POST",
+        signal: sessionSignal(),
         headers: {
           "Authorization": `Basic ${credentials}`
         }
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof TimeoutError) throw err;
       throw new Error("Network error — could not reach the server.");
     }
 
-    // Only 401/403 means the credentials were actually rejected. A 500 or 502
-    // is the platform failing, and telling the user their password is wrong
-    // sends them off retrying credentials that were fine.
+    // Separate rejected credentials from platform outages.
     if (response.status === 401 || response.status === 403) {
       throw new Error("Invalid credentials. Please try again.");
     }
@@ -55,45 +63,50 @@ export async function login(event) {
       );
     }
 
-    const jwt = cleanToken(await response.text());
+    const jwt = cleanToken(await readResponse(response, "text"));
+    if (!isCurrentSession(session)) return;
     if (!jwt) {
       throw new Error("Login failed: no token returned by the server.");
     }
+    if (isTokenExpired(jwt)) {
+      throw new Error("Login failed: the server returned an invalid or expired token.");
+    }
 
-    localStorage.setItem(TOKEN_KEY, jwt);
-    // The password must not survive the login. Without this it sits in the
-    // input's value for the whole session and is still there — readable from
-    // the DOM — when logout brings the same form back into view.
+    if (!setToken(jwt)) {
+      throw new Error(
+        "Could not start a session — this browser is blocking site storage."
+      );
+    }
+    // Clear the password before showing the dashboard.
     if (passwordEl) passwordEl.value = "";
     showDashboard();
   } catch (err) {
+    if (!isCurrentSession(session)) return;
     showError(err.message);
   } finally {
-    if (submitBtn) submitBtn.disabled = false;
+    if (activeLogin === attempt) {
+      activeLogin = null;
+      if (submitBtn) submitBtn.disabled = false;
+    }
   }
 }
 
-// Single source of truth for ending a session. Used by the logout button and
-// triggered automatically when a token is missing/expired/rejected. Clears the
-// stored token and resets rendered values so no protected data lingers — but
-// keeps the card structure intact so a later re-login can repopulate it.
+// All session-ending paths clear credentials, caches and rendered data here.
 export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  // Belt and braces: clear the field on the way out too, so a failed login
-  // attempt's password doesn't linger in the form either. The username is
-  // deliberately left alone — it isn't a secret, and keeping it is a courtesy.
+  activeLogin = null;
+  const submitBtn = document.getElementById("login-btn");
+  if (submitBtn) submitBtn.disabled = false;
+  clearToken();
+  // Keep the identifier for convenience, but never retain the password.
   const passwordEl = document.getElementById("password");
   if (passwordEl) passwordEl.value = "";
   resetProfile();
   showLogin();
 }
 
-// Build the Basic auth credential. btoa() only accepts Latin-1, so a password
-// with any character outside that range (an accent, a Greek letter, an emoji)
-// throws an InvalidCharacterError. The bytes are UTF-8 encoded first and then
-// base64'd byte by byte, which is what the endpoint expects for non-ASCII input
-// and is identical to plain btoa() for pure-ASCII credentials.
+// Encode UTF-8 bytes before base64 so Greek/emoji credentials work too.
 export function basicAuth(identifier, password) {
+  if (identifier.includes(":")) throw new Error("Username/email cannot contain a colon.");
   const bytes = new TextEncoder().encode(`${identifier}:${password}`);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);

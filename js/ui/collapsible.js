@@ -10,7 +10,7 @@
 
 import { COLLAPSIBLE_LISTS } from "../config.js";
 
-export function setExpanded(listId, toggleId, expanded, hiddenCount) {
+function setExpanded(listId, toggleId, expanded, hiddenCount) {
   const listEl = document.getElementById(listId);
   const toggle = document.getElementById(toggleId);
   if (!listEl || !toggle) return;
@@ -64,7 +64,10 @@ export function resetAllOverflow() {
     resetOverflow(listId, toggleId);
   }
   const projectsToggle = document.getElementById("projects-toggle");
-  if (projectsToggle) projectsToggle.hidden = true;
+  if (projectsToggle) {
+    projectsToggle.hidden = true;
+    projectsToggle.setAttribute("aria-expanded", "false");
+  }
 }
 
 // Wire each list's Show more / Show less button once on load.

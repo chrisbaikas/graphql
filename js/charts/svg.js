@@ -5,7 +5,7 @@
 // not a charting library — so this module is that proof: a handful of DOM
 // helpers and shared geometry, with no third-party code behind them.
 
-export const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Create an SVG element in the correct namespace and apply attributes.
 // `attrs` keys map straight to SVG attribute names (e.g. { x1: 0, stroke: "#fff" }).
@@ -39,19 +39,17 @@ export const CHART = {
   label: "#94a3b8",
   value: "#e2e8f0"
 };
-CHART.plotW = CHART.W - CHART.pad.left - CHART.pad.right;
 CHART.plotH = CHART.H - CHART.pad.top - CHART.pad.bottom;
 
-// Draw the L-shaped X/Y axes into an existing <svg>. Returns nothing — callers
-// add their own data marks and labels on top.
-export function drawAxes(svg) {
-  const { pad, plotW, plotH, axis } = CHART;
+// The horizontal axis follows zero, which may be inside the plot for negative XP.
+export function drawAxes(svg, baselineY, plotW) {
+  const { pad, plotH, axis } = CHART;
   svg.appendChild(svgEl("line", {
     x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotH,
     stroke: axis, "stroke-width": 1
   }));
   svg.appendChild(svgEl("line", {
-    x1: pad.left, y1: pad.top + plotH, x2: pad.left + plotW, y2: pad.top + plotH,
+    x1: pad.left, y1: baselineY, x2: pad.left + plotW, y2: baselineY,
     stroke: axis, "stroke-width": 1
   }));
 }
@@ -61,4 +59,20 @@ export function svgText(content, attrs = {}) {
   const el = svgEl("text", { "font-size": 11, fill: CHART.label, ...attrs });
   el.textContent = content;
   return el;
+}
+
+// Attach a hover tooltip to a shape by giving it an SVG <title> child.
+//
+// <title> is the SVG element's accessible name as well as its native tooltip,
+// so one node covers both the mouse and the screen reader — no library, no
+// listeners, no positioning code. It must be the FIRST child to be picked up
+// reliably, hence prepend rather than append.
+//
+// The text is set with textContent, so a project name from the platform is
+// inserted as text and never parsed as markup.
+export function withTooltip(shape, text) {
+  const title = svgEl("title");
+  title.textContent = text;
+  shape.prepend(title);
+  return shape;
 }

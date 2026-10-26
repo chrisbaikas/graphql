@@ -1,21 +1,17 @@
-/* ---------------- JWT HELPERS ---------------- */
-
-// Decode the JWT payload (middle segment, base64url) without verifying it —
-// just enough to read the `exp` claim for client-side expiry checks.
+/* Decode only; the platform verifies the signature and access permissions. */
 export function decodeJwtPayload(jwt) {
   try {
-    const payload = jwt.split(".")[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(base64));
-  } catch {
-    return null;
-  }
+    if (typeof jwt !== "string") return null;
+    const parts = jwt.split(".");
+    if (parts.length !== 3 || parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    return payload && typeof payload === "object" && !Array.isArray(payload) ? payload : null;
+  } catch { return null; }
 }
 
-// True if the token is malformed or its `exp` (seconds) is in the past.
 export function isTokenExpired(jwt) {
   const payload = decodeJwtPayload(jwt);
-  if (!payload || typeof payload.exp !== "number") return true;
-  return payload.exp * 1000 <= Date.now();
+  return !payload || !Number.isFinite(payload.exp) || payload.exp <= Date.now() / 1000;
 }

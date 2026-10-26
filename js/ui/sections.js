@@ -8,11 +8,9 @@ export function setupSectionControls() {
   const collapseBtn = document.getElementById("collapse-all");
   if (!expandBtn || !collapseBtn) return;
 
-  // The GraphiQL playground is a card too, but it is a tool rather than profile
-  // content and is deliberately collapsed by default — leave it out so
-  // "Expand all" doesn't unfold it along with the profile sections.
-  const cards = () =>
-    document.querySelectorAll("#profile .card:not(#graphiql-section)");
+  // Every card in the dashboard, the GraphiQL playground included — it starts
+  // collapsed, but "Expand all" means all of them.
+  const cards = () => document.querySelectorAll("#profile .card");
 
   const refresh = () => {
     const all = [...cards()];

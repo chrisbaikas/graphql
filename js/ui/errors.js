@@ -2,10 +2,8 @@
 
 import { SilentError } from "../core/session.js";
 
-// Errors go to whichever view is actually on screen. Section failures used to
-// write to the login view's #error, which is hidden once the dashboard is up —
-// so those messages were never seen. Dashboard errors accumulate, because one
-// reload can fail several sections independently and each is worth reporting.
+// Route errors to the visible view. Dashboard errors accumulate because
+// sections load independently and can each fail.
 
 // Report a section's failure. A SilentError means the session ended — that is
 // already reported (or deliberately silent), and prefixing it with "Could not
@@ -21,7 +19,7 @@ export function reportSectionError(prefix, err) {
 export function showError(message) {
   if (!message) return;
   const dashboardView = document.getElementById("dashboard-view");
-  const onDashboard = dashboardView && dashboardView.style.display !== "none";
+  const onDashboard = dashboardView && dashboardView.style.display === "block";
 
   if (onDashboard) {
     const box = document.getElementById("dashboard-error");

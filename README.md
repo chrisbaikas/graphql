@@ -18,12 +18,13 @@ css/style.css     # styles
 js/
   main.js         # entry point: wiring + routing
   config.js       # domain, derived URLs, display constants
-  core/           # auth, GraphQL transport, JWT helpers
+  core/           # auth, GraphQL transport, JWT, token storage, fetch timeout
   data/           # query strings + the fetch layer (no DOM)
   sections/       # one module per dashboard card (no fetching)
   charts/         # hand-written SVG primitives + the three graphs
   ui/             # views, errors, collapsible lists, modal, formatting
   playground.js   # in-app GraphiQL
+tests/            # node:test helper, data and transport regressions
 docs/             # project instructions, audit criteria, ticket tracker
 ```
 
@@ -48,17 +49,87 @@ npx serve .
 
 In VS Code you can also use the **Live Server** extension.
 
+## Tests
+
+Tests cover formatting, JWT parsing/expiry, Basic auth, fetch timeouts,
+data transformations and GraphQL session isolation. They use Node's built-in test
+runner, so there is nothing to install:
+
+```bash
+make test
+make check  # tests + module syntax
+# or directly:
+node --test tests/*.test.js
+```
+
+Optional Chromium/Firefox regressions: `make test-browser`, using Playwright
+installed outside the repository. See [browser verification](docs/browser-verification.md)
+for exact setup, commands and the 14 covered scenario groups.
+
+Requires Node 22.7 or newer for native ES module detection without package
+metadata. The tests import the same modules the browser loads and stub API
+responses; they do not contact the platform or require credentials.
+
+Current audit status and remaining hosting/live-account checks are in the
+[ticket tracker](docs/ticket-tracker.md#where-the-project-stands-2026-10-22).
+
+## Sessions and data scope
+
+JWTs are stored only in `sessionStorage` under `token`. Reload in the same tab
+preserves an unexpired session; independent tabs have their own login/logout.
+An old `localStorage.token` is deleted at startup/login/logout, never migrated.
+Passwords are cleared on successful login and logout. Blocked storage produces
+a visible login error.
+
+The dashboard targets the Athens main cursus (`CURSUS_ROOT` in `js/config.js`).
+XP includes Piscine roll-ups and exams, excluding nested Piscine exercises.
+Changing `DOMAIN` also requires updating the static CSP connect-src allowlist
+in `index.html`. There are no hardcoded user/event/project IDs.
+
+List queries paginate with stable ID ordering; XP consumers share one complete
+cached result per load. A terminal empty page establishes completeness even
+when the platform returns fewer rows than requested. Recent activity keeps
+60 results after filtering. A small nonempty profile uses 11 GraphQL POSTs;
+large profiles use more. Playground examples show one page by default and
+accept `limit`/`offset` variables. HTTP 403/query permission errors preserve the
+session; HTTP 401/explicit JWT errors end it.
+
+Use a current browser with native ES modules, `AbortSignal.timeout()`,
+`AbortSignal.any()` and `ResizeObserver`. All three request paths have a 12-second
+budget, including body reads; logout aborts pending work. Live schema/data and hosted CORS still
+need the checks in the linked tracker.
+
 ## Deployment
 
-Static hosting — no build. Options:
+Static hosting — no build step and no server-side anything. Every path in
+`index.html` is relative (`./css/`, `./js/`), so the site works unchanged
+whether it is served from a domain root or from a project subpath.
 
-- **GitHub Pages:** push to GitHub → Settings → Pages → deploy from branch.
-- **Netlify:** drag-and-drop this folder into the Netlify dashboard.
+The app must be served over HTTP, not opened from the filesystem: ES modules
+and `fetch` both fail under `file://`.
 
-After deploying, put the public URL in the **Live URL** field above.
+### GitHub Pages
+
+1. The existing `origin` is Zone01 Gitea, which is not GitHub Pages.
+   Push the reviewed branch to a separate GitHub repository/remote.
+2. On GitHub, open **Settings → Pages → Source:** "Deploy from a branch".
+3. Pick the branch containing the reviewed version (currently
+   `chbaikas/security-and-polish`) and the `/ (root)` folder, then Save.
+4. Keep the included `.nojekyll` file at the repository root to bypass Jekyll.
+5. The site appears at `https://<user>.github.io/<repo>/`.
+
+### Netlify / Vercel / any static host
+
+Upload `index.html`, `css/`, `js/` and `.nojekyll`, or configure a host to serve
+these files with no build command and the repository root as its publish
+directory. Exclude local secret files and tooling metadata.
+
+Once it is live, put the public URL in the **Live URL** field at the top of this
+file.
 
 ## Docs
 
 - [Project instructions](docs/instructions.md)
 - [Audit criteria](docs/audit-readme.md)
 - [Ticket tracker](docs/ticket-tracker.md)
+- [Live data verification](docs/data-verification.md)

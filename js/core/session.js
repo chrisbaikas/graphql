@@ -12,12 +12,12 @@ export function registerSessionEnd(fn) {
 }
 
 // Call the registered logout. Safe to call before registration (no-op).
-export function endSession() {
-  onSessionEnd();
+export function endSession(message = "") {
+  onSessionEnd(message);
 }
 
-// A session-ending error whose message may be empty: the first concurrent
-// caller carries the text, the rest are silent so they don't overwrite it.
+// Discarded requests use an empty message. Session-ending explanations are
+// delivered by the registered hook after the UI has been reset.
 export class SilentError extends Error {}
 
 /* ---------------- SESSION GENERATION ---------------- */
@@ -30,11 +30,17 @@ export class SilentError extends Error {}
 // Without this, a slow request issued by user A can resolve while user B is
 // looking at the dashboard and paint A's data over B's.
 let generation = 0;
+let controller = new AbortController();
 
-// Start a new generation and return its id. Callers hold on to the returned
-// value and pass it to isCurrentSession() after every await.
+export function sessionSignal() {
+  return controller.signal;
+}
+
+// Invalidate old loaders and cancel their requests before starting a new load.
 export function newSession() {
   generation += 1;
+  controller.abort();
+  controller = new AbortController();
   return generation;
 }
 
