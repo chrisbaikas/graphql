@@ -1,6 +1,6 @@
 # Data Accuracy Verification (Ticket 13)
 
-Last reviewed: **2026-10-22**. Code and browser checks with synthetic data pass;
+Last reviewed: **2026-10-26**. Code and browser checks with synthetic data pass;
 **live GraphiQL verification remains open**. No real account was used for this
 review. Do not treat old account totals as expected values for today's data.
 
@@ -320,6 +320,8 @@ They do not replace the real-account checkboxes below.
 | 2026-10-22 | Local Chromium, intercepted synthetic API responses | Eleven scenario groups: initial/login failures/success, UTF-8 credentials, server/network/query errors, timeout recovery (shortened test budget), paginated totals, three SVGs, empty/single/negative/zero/large/Unicode datasets, modal keyboard/inert/focus cleanup, A→B and pending-request races, playground envelope/variables/shortcuts, refresh and simulated project-subpath hosting. Widths 320/360/560/1280px. No unexpected console errors, CSP violations or missing local assets. A real streamed body timeout was also verified against a temporary local HTTP server. This does not prove live schema, real source data or platform CORS. |
 | 2026-10-22, independent-audit fixes | Chromium + Firefox, committed `tests/browser/run.cjs` | All 14 scenario groups pass, including the original eleven, responsive chart/modal labels at 320/375/768/1280/1920px, placeholder semantics, focus/reset, reduced motion and real streamed body timeout. Synthetic responses still do not close T13. |
 | Pending | Real Zone01 account + independent platform GraphiQL | Complete all live checks above, then update T13. |
-| Pending | Public HTTPS deployment | Complete T12 and record the URL in README.md. |
+| 2026-10-26 | Local Node + synthetic Chromium/Firefox | `make test` and `make check`: 123/123 tests; 14/14 browser groups in each browser. No production code changes. |
+| 2026-10-26 | Public HTTPS deployment, Chromium + Firefox | https://chrisbaikas.github.io/graphql-profile/ serves `main / root`. Login assets/modules, invalid credentials, CORS preflights/rejection responses, unauthenticated reload and login layout passed. These checks do not verify authenticated data or complete T12. |
+| 2026-10-26 | Real-account availability | User confirmed no safe session is available. Independent platform GraphiQL was not used. Identity, cursus root, output numeric types, permissions, XP, level, audits, skills, projects, graphs and authenticated playground comparisons remain pending. |
 
 T13 is complete only after the source-row comparisons pass with a real account.

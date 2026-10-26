@@ -23,14 +23,14 @@
 
 ---
 
-## Where the project stands (2026-10-22)
+## Where the project stands (2026-10-26)
 
 The required features and bonus cards/graphs/playground are implemented.
 **The project is not yet fully audit-verified.** Remaining work:
 
 | Remaining | Completion evidence | Ticket |
 | --- | --- | --- |
-| Publish on a public HTTPS host | Record live URL in README and test login, sections, graphs, refresh and logout there | T12 — TODO |
+| Finish hosted account checks | Public HTTPS site deployed from `main / root`; successful login, live sections/graphs, authenticated refresh and logout await a real account | T12 — IN PROGRESS |
 | Verify source data with a real account | Complete [data-verification.md](./data-verification.md) in the platform's independent GraphiQL | T13 — IN PROGRESS |
 | Final live browser pass | Username AND email login, wrong credentials, expired/revoked token, keyboard controls, small screen and tab-scoped sessions | T2/T3/T4/T17 manual boxes |
 
@@ -38,6 +38,14 @@ The 2026-10-22 review exercised the app locally with synthetic API responses;
 it did not use real credentials, publish a site, or establish live data accuracy.
 Checked implementation boxes describe code delivered; unchecked manual boxes
 remain required before claiming a complete audit pass.
+
+On 2026-10-26, `make test` and `make check` passed all 123 Node tests, and
+Chromium/Firefox each passed all 14 synthetic browser groups. The public site is
+https://chrisbaikas.github.io/graphql-profile/ (GitHub Pages, `main / root`, HTTPS
+enforced). Hosted Chromium/Firefox checks verified assets/modules, login layout,
+keyboard focus, invalid credentials and API CORS. The user confirmed that no
+real Zone01 session is available; authenticated hosting and independent
+GraphiQL comparisons remain pending. No live-account checkbox was closed.
 
 ---
 
@@ -551,7 +559,7 @@ for defects rather than polish. Fixed on branch `chbaikas/fixes`:
 
 ## Ticket 12 — Hosting / Deployment
 
-- **Status:** TODO — public deployment and hosted verification remain open
+- **Status:** IN PROGRESS — deployed; authenticated hosted verification remains open
 - **Priority:** P0
 - **Audit mapping:**
   *"Try to access the profile from the host domain → Is the profile
@@ -561,17 +569,43 @@ for defects rather than polish. Fixed on branch `chbaikas/fixes`:
 Publish the site so the auditor can open it at a public URL.
 
 ### Tasks
-- [ ] Choose a host (GitHub Pages / Netlify / …)
-- [ ] Deploy the static site
+- [x] Choose a host (GitHub Pages, `main / root`)
+- [x] Deploy the static site
 - [ ] Verify the deployed login flow works against the live endpoints
-- [ ] Record the live URL in `README.md`
+- [x] Record the live URL in `README.md`
 
 ### Acceptance criteria
-- [ ] The profile is reachable at a public URL
+- [x] The profile is reachable at a public URL
 - [ ] Login, all sections, graphs, and logout work on the hosted version
-- [ ] Record the live URL in `README.md`
+- [x] Record the live URL in `README.md`
 
-### Ready to deploy
+### Deployment verification — 2026-10-26
+
+- Repository: https://github.com/chrisbaikas/graphql-profile
+- Live URL returned by the Pages API: https://chrisbaikas.github.io/graphql-profile/
+- Pages configuration: branch `main`, path `/`, HTTPS enforced.
+- Preserved Zone01 `origin`; added `github` as a second remote.
+- Gitleaks scanned tracked files and all 40 pre-publication commits. Its sole
+  finding was the deliberately synthetic expired token in the browser fixture
+  (`tests/browser/run.cjs`); manual review confirmed it is not a credential.
+  A separate scan of 281 historical blobs found no credential-pattern or
+  sensitive-file candidates. No real secrets were found.
+- Chromium and Firefox loaded the login page and all 29 ES modules. All 31
+  HTML/CSS/JS assets returned HTTP 200 and matched local bytes; JS/CSS MIME types
+  were correct. The favicon is an inline data URI. Subpath reload, keyboard
+  focus and login widths 320/375/768/1280/1920px passed without page overflow.
+- Deliberately invalid login returned HTTP 401 and the visible Invalid
+  credentials message; no session token was created. No unexpected console
+  exceptions, CSP violations, missing assets or failed browser requests.
+- Both API preflights returned 204. Sign-in allowed Authorization; GraphQL
+  allowed authorization/content-type and the actual Pages origin. Browsers
+  could read sign-in 401 and GraphQL invalid-token rejection (HTTP 200),
+  establishing CORS for these requests, not successful authentication.
+- User confirmed no real Zone01 session is available. Successful username/email
+  login, dashboard sections/graphs, authenticated refresh/logout and independent
+  source-data comparisons remain unverified; T12 stays open.
+
+### Deployment contents
 No build is required. The site is plain static files with
 no build step, and the repo holds no credentials — only code that *handles* a
 password (verified by scanning the tracked files). The deployable set is:
@@ -600,29 +634,23 @@ audit.
 No git push is needed. Static hosting serves the HTML, CSS and JavaScript
 source to visitors; never include credentials or local secret files.
 
-### Option B — GitHub Pages
+### Active host — GitHub Pages
 
-The project's `origin` is the Zone01 Gitea instance, which does not serve
-Pages, so this needs a GitHub remote as well.
+The project's `origin` is the Zone01 Gitea instance. The separate `github`
+remote and public repository now exist; reuse them for future deployments.
 
 ```bash
-# 1. Create a public GitHub repository for static hosting
-gh repo create graphql-profile --public --source=. --remote=github
+# Publish main without rewriting any remote history
+git push origin main
+git push github main
 
-# 2. Publish the reviewed branch without rewriting any remote history
-git push github chbaikas/security-and-polish
-
-# 3. Turn on Pages, serving from the root of the reviewed branch
-gh api -X POST repos/:owner/graphql-profile/pages \
-  -f "source[branch]=chbaikas/security-and-polish" -f "source[path]=/"
+# Inspect the existing main / root Pages configuration and actual live URL
+gh api repos/chrisbaikas/graphql-profile/pages
+gh api repos/chrisbaikas/graphql-profile/pages/builds/latest
 ```
 
-The URL will be `https://<username>.github.io/graphql-profile/`. It can take a
-minute or two to go live on the first deploy.
-
-**Note:** this makes the source public. Nothing sensitive is in it, but it is a
-one-way step — a repo that has been public should be treated as having been
-seen.
+The Pages API returned https://chrisbaikas.github.io/graphql-profile/. It can
+take a minute or two for subsequent pushes to become live.
 
 ### Option C — any other static host
 
@@ -631,13 +659,13 @@ at the folder, no build command, no output directory.
 
 ### After deploying — verify on the live URL, not localhost
 
-- [ ] The login page loads over **https**
+- [x] The login page loads over **https**
 - [ ] Log in with valid credentials → dashboard appears
 - [ ] All three required sections show real values
 - [ ] Both required graphs render, plus the bonus third
 - [ ] Logout returns to the login view
 - [ ] Reload while logged in → still on the dashboard
-- [ ] Paste the URL into `README.md` under **Live URL**
+- [x] Paste the URL into `README.md` under **Live URL**
 
 If login works locally but fails on the live URL, check the browser console for
 a CORS error: the platform must accept requests from the new origin. The GraphQL POST uses `Authorization` and `Content-Type: application/json`,
@@ -689,6 +717,11 @@ This is the step an auditor will literally perform, so do it first ourselves.
 
 ### Manual verification (needs live session)
 - [ ] Work through [data-verification.md](./data-verification.md) end to end
+
+2026-10-26: user confirmed no real Zone01 session is available. The platform's
+GraphiQL was not used; identity, cursus scope, numeric types, row permissions
+and all real values remain unverified. Synthetic test success and public
+hosting do not complete T13.
 
 ---
 

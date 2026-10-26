@@ -67,3 +67,25 @@ reduced motion in browser DevTools and confirm dots appear without a delay.
 These synthetic checks do **not** establish live schema types, row permissions,
 account totals or hosted CORS. Complete [data-verification.md](data-verification.md)
 with a real account for T13 and test the public deployment for T12.
+
+## Latest verification — 2026-10-26
+
+`make test` and `make check` passed **123 tests**, with zero failures or skips.
+The commands above passed **14/14 scenario groups in Chromium** and **14/14 in
+Firefox**, using Playwright 1.62.1 outside the repository. The restricted sandbox
+initially reported only ten file-level results; the unrestricted Node runner
+executed all 123 individual tests.
+
+Additional real-network checks against
+https://chrisbaikas.github.io/graphql-profile/ passed in both browsers: HTTPS,
+all 31 HTML/CSS/JS assets matching source, 29 loaded ES modules, correct MIME
+types, the data-URI favicon, subpath reload, login keyboard focus and no login
+overflow at 320/375/768/1280/1920px. Deliberately invalid credentials produced
+HTTP 401 and a visible error, with no stored token. Real sign-in and GraphQL
+preflights returned 204; their rejection responses were readable across origins.
+There were no unexpected console errors, CSP violations or failed resources.
+
+No real Zone01 session was available, as confirmed by the user. Successful
+hosted authentication, dashboard values/graphs, authenticated refresh/logout and
+independent platform GraphiQL comparisons remain pending under T12/T13. The
+synthetic dashboard tests above do not close those live checks.

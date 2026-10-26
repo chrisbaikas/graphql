@@ -5,7 +5,8 @@ platform (JWT), queries the logged-in user's own data from the GraphQL
 endpoint, and displays it as profile sections plus SVG statistics graphs.
 
 - **Platform:** `platform.zone01.gr`
-- **Live URL:** _(add after deploying — see Deployment)_
+- **Live URL:** https://chrisbaikas.github.io/graphql-profile/
+- **GitHub repository:** https://github.com/chrisbaikas/graphql-profile
 
 ## Tech
 
@@ -71,7 +72,7 @@ metadata. The tests import the same modules the browser loads and stub API
 responses; they do not contact the platform or require credentials.
 
 Current audit status and remaining hosting/live-account checks are in the
-[ticket tracker](docs/ticket-tracker.md#where-the-project-stands-2026-10-22).
+[ticket tracker](docs/ticket-tracker.md#where-the-project-stands-2026-10-26).
 
 ## Sessions and data scope
 
@@ -96,8 +97,8 @@ session; HTTP 401/explicit JWT errors end it.
 
 Use a current browser with native ES modules, `AbortSignal.timeout()`,
 `AbortSignal.any()` and `ResizeObserver`. All three request paths have a 12-second
-budget, including body reads; logout aborts pending work. Live schema/data and hosted CORS still
-need the checks in the linked tracker.
+budget, including body reads; logout aborts pending work. Live schema/data and
+successful hosted authentication still need the checks in the linked tracker.
 
 ## Deployment
 
@@ -110,13 +111,17 @@ and `fetch` both fail under `file://`.
 
 ### GitHub Pages
 
-1. The existing `origin` is Zone01 Gitea, which is not GitHub Pages.
-   Push the reviewed branch to a separate GitHub repository/remote.
-2. On GitHub, open **Settings → Pages → Source:** "Deploy from a branch".
-3. Pick the branch containing the reviewed version (currently
-   `chbaikas/security-and-polish`) and the `/ (root)` folder, then Save.
-4. Keep the included `.nojekyll` file at the repository root to bypass Jekyll.
-5. The site appears at `https://<user>.github.io/<repo>/`.
+The public site uses **Deploy from a branch**, **`main / root`**, with HTTPS
+enforced. The included `.nojekyll` bypasses Jekyll. The `origin` remote remains
+Zone01 Gitea; the separate `github` remote publishes to GitHub.
+
+On 2026-10-26, Chromium and Firefox verified the hosted login page, all 31
+HTML/CSS/JavaScript files against local source, module MIME types, subpath reload,
+invalid credentials, keyboard focus and login layout at 320–1920px. Real API
+preflights and rejection responses were accessible from the hosted origin.
+Successful authentication, authenticated refresh/logout, live dashboard/graphs
+and independent platform GraphiQL comparisons remain pending a real account.
+T12 and T13 remain open until those checks pass.
 
 ### Netlify / Vercel / any static host
 
@@ -124,8 +129,7 @@ Upload `index.html`, `css/`, `js/` and `.nojekyll`, or configure a host to serve
 these files with no build command and the repository root as its publish
 directory. Exclude local secret files and tooling metadata.
 
-Once it is live, put the public URL in the **Live URL** field at the top of this
-file.
+When changing hosts, update the **Live URL** above and repeat the hosted checks.
 
 ## Docs
 
