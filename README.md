@@ -5,8 +5,8 @@ platform (JWT), queries the logged-in user's own data from the GraphQL
 endpoint, and displays it as profile sections plus SVG statistics graphs.
 
 - **Platform:** `platform.zone01.gr`
-- **Live URL:** https://chrisbaikas.github.io/graphql-profile/
-- **GitHub repository:** https://github.com/chrisbaikas/graphql-profile
+- **Live URL:** https://chrisbaikas.github.io/graphql/
+- **GitHub repository:** https://github.com/chrisbaikas/graphql
 
 ## Tech
 

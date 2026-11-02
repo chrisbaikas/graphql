@@ -42,7 +42,7 @@ explicitly identified as regression fixtures in the data-verification record.
 
 On 2026-10-26, `make test` and `make check` passed all 123 Node tests, and
 Chromium/Firefox each passed all 14 synthetic browser groups. The public site is
-https://chrisbaikas.github.io/graphql-profile/ (GitHub Pages, `main / root`, HTTPS
+https://chrisbaikas.github.io/graphql/ (GitHub Pages, `main / root`, HTTPS
 enforced). Initial hosted Chromium/Firefox checks verified assets/modules, login
 layout, keyboard focus, invalid credentials and API CORS. The subsequent visible
 Chromium pass used manual username/email and platform logins. All live values
@@ -582,8 +582,8 @@ Publish the site so the auditor can open it at a public URL.
 
 ### Deployment verification — 2026-10-26
 
-- Repository: https://github.com/chrisbaikas/graphql-profile
-- Live URL returned by the Pages API: https://chrisbaikas.github.io/graphql-profile/
+- Repository: https://github.com/chrisbaikas/graphql
+- Live URL returned by the Pages API: https://chrisbaikas.github.io/graphql/
 - Pages configuration: branch `main`, path `/`, HTTPS enforced.
 - Preserved Zone01 `origin`; added `github` as a second remote.
 - Gitleaks scanned tracked files and all 40 pre-publication commits. Its sole
@@ -648,11 +648,11 @@ git push origin main
 git push github main
 
 # Inspect the existing main / root Pages configuration and actual live URL
-gh api repos/chrisbaikas/graphql-profile/pages
-gh api repos/chrisbaikas/graphql-profile/pages/builds/latest
+gh api repos/chrisbaikas/graphql/pages
+gh api repos/chrisbaikas/graphql/pages/builds/latest
 ```
 
-The Pages API returned https://chrisbaikas.github.io/graphql-profile/. It can
+The Pages API returned https://chrisbaikas.github.io/graphql/. It can
 take a minute or two for subsequent pushes to become live.
 
 ### Option C — any other static host

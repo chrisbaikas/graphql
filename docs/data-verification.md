@@ -330,7 +330,7 @@ They do not replace the real-account checkboxes below.
 | 2026-10-22, independent-audit fixes | Chromium + Firefox, committed `tests/browser/run.cjs` | All 14 scenario groups pass, including the original eleven, responsive chart/modal labels at 320/375/768/1280/1920px, placeholder semantics, focus/reset, reduced motion and real streamed body timeout. Synthetic responses still do not close T13. |
 | 2026-10-26 | Real Zone01 account + independent platform GraphiQL | Required comparisons complete; all MATCH. See the detailed record below. |
 | 2026-10-26 | Final regression after real-account pass | `make test` and `make check`: 123/123 tests; 14/14 synthetic browser groups in each of Chromium and Firefox. No production code changes. |
-| 2026-10-26, initial deployment | Public HTTPS deployment, Chromium + Firefox | https://chrisbaikas.github.io/graphql-profile/ serves `main / root`. Login assets/modules, invalid credentials, CORS preflights/rejection responses, unauthenticated reload and login layout passed. These initial checks alone did not verify authenticated data or complete T12. |
+| 2026-10-26, initial deployment | Public HTTPS deployment, Chromium + Firefox | https://chrisbaikas.github.io/graphql/ serves `main / root`. Login assets/modules, invalid credentials, CORS preflights/rejection responses, unauthenticated reload and login layout passed. These initial checks alone did not verify authenticated data or complete T12. |
 | 2026-10-26, initial deployment | Real-account availability | Initially unavailable. Superseded by the subsequent manual browser logins and authenticated results below. |
 
 ## Live account results — 2026-10-26

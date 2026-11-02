@@ -77,7 +77,7 @@ initially reported only ten file-level results; the unrestricted Node runner
 executed all 123 individual tests.
 
 Additional real-network checks against
-https://chrisbaikas.github.io/graphql-profile/ passed in both browsers: HTTPS,
+https://chrisbaikas.github.io/graphql/ passed in both browsers: HTTPS,
 all 31 HTML/CSS/JS assets matching source, 29 loaded ES modules, correct MIME
 types, the data-URI favicon, subpath reload, login keyboard focus and no login
 overflow at 320/375/768/1280/1920px. Deliberately invalid credentials produced
