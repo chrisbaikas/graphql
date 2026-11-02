@@ -140,4 +140,5 @@ When changing hosts, update the **Live URL** above and repeat the hosted checks.
 - [Project instructions](docs/instructions.md)
 - [Audit criteria](docs/audit-readme.md)
 - [Ticket tracker](docs/ticket-tracker.md)
+- [Audit queries](docs/audit-queries.md) — the queries to run in GraphiQL, with dated reference values
 - [Live data verification](docs/data-verification.md)
