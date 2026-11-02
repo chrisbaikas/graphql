@@ -15,7 +15,12 @@
 import { CURSUS_ROOT, PROFILE_PAGE_SIZE } from "../config.js";
 
 // The app's NORMAL query: no arguments, no nesting.
-export const USER = `{ user { id login } }`;
+export const USER = `query User {
+  user {
+    id
+    login
+  }
+}`;
 
 // WITH ARGUMENTS (where: type _eq "xp"), ordered so the same rows serve both
 // the XP total and both XP graphs. `createdAt` is fetched here even

@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, "../..");
 const token = (sub) =>
   `e30.${Buffer.from(JSON.stringify({ sub, exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.sig`;
 const result = [];
+const USER_QUERY = "query User {\n  user {\n    id\n    login\n  }\n}";
 (async () => {
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url, "http://localhost").pathname;
@@ -414,6 +415,199 @@ const result = [];
       }
     );
     await scenario(
+      "playground multiline User, editor keys and resizable panels",
+      async ({ page, state, login, loaded }) => {
+        // Tall enough for the whole page: a synthetic pointer dragged outside the
+        // window is not captured, so resize drags must stay inside it.
+        await page.setViewportSize({ width: 1280, height: 3400 });
+        await login();
+        await loaded();
+        await page.locator("#graphiql-section summary").click();
+        const query = page.locator("#gql-query");
+        const variables = page.locator("#gql-variables");
+        const output = page.locator("#gql-result");
+        const activeId = () => page.evaluate(() => document.activeElement.id);
+        const caret = () =>
+          query.evaluate((e) => [e.selectionStart, e.selectionEnd]);
+        const place = (start, end = start) =>
+          query.evaluate((e, [s, f]) => {
+            e.focus();
+            e.setSelectionRange(s, f);
+          }, [start, end]);
+
+        // Initial content and the User example are the multiline named query.
+        assert.equal(await query.inputValue(), USER_QUERY);
+        await page.locator('.gql-example[data-query="XP_TRANSACTIONS"]').click();
+        assert.match(await query.inputValue(), /query XpTransactions/);
+        await page.locator('.gql-example[data-query="USER"]').click();
+        assert.equal(await query.inputValue(), USER_QUERY);
+
+        // Tab / Shift+Tab with the caret before `id`.
+        const idAt = USER_QUERY.indexOf("id");
+        await place(idAt);
+        await page.keyboard.press("Tab");
+        assert.equal(await query.inputValue(), USER_QUERY.replace("    id", "      id"));
+        assert.deepEqual(await caret(), [idAt + 2, idAt + 2]);
+        await page.keyboard.press("Shift+Tab");
+        assert.equal(await query.inputValue(), USER_QUERY);
+        assert.deepEqual(await caret(), [idAt, idAt]);
+        assert.equal(await activeId(), "gql-query");
+
+        // A multi-line selection indents all its lines and stays selected.
+        const bodyAt = USER_QUERY.indexOf("user {");
+        await place(bodyAt, USER_QUERY.indexOf("}\n}"));
+        await page.keyboard.press("Tab");
+        assert.equal(
+          await query.inputValue(),
+          "query User {\n    user {\n      id\n      login\n    }\n}"
+        );
+        await page.keyboard.press("Shift+Tab");
+        assert.equal(await query.inputValue(), USER_QUERY);
+
+        // Esc then Tab leaves the editor once; Shift+Tab returns; Tab indents again.
+        await place(idAt);
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Tab");
+        assert.equal(await activeId(), "gql-variables");
+        assert.equal(await query.inputValue(), USER_QUERY);
+        await page.keyboard.press("Shift+Tab");
+        assert.equal(await activeId(), "gql-query");
+        await place(idAt);
+        await page.keyboard.press("Tab");
+        assert.equal(await activeId(), "gql-query");
+        assert.equal(await query.inputValue(), USER_QUERY.replace("    id", "      id"));
+        await page.keyboard.press("Shift+Tab");
+        // Esc then Shift+Tab also escapes (the Shift keydown must not cancel the Esc).
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Shift+Tab");
+        assert.notEqual(await activeId(), "gql-query");
+        assert.equal(await query.inputValue(), USER_QUERY);
+
+        // Variables is plain JSON input: Tab there is normal focus navigation.
+        await variables.fill("{}");
+        await variables.focus();
+        await page.keyboard.press("Tab");
+        assert.equal(await activeId(), "gql-run");
+        assert.equal(await variables.inputValue(), "{}");
+        await variables.fill("");
+
+        // Ctrl+Enter and Cmd+Enter (Meta) still run the query.
+        const userRuns = () => state.requests.filter((r) => r.query === USER_QUERY).length;
+        const before = userRuns();
+        await query.focus();
+        await page.keyboard.press("Control+Enter");
+        await page.locator("#gql-status").filter({ hasText: "OK" }).waitFor();
+        assert.equal(userRuns(), before + 1);
+        await query.focus();
+        await page.keyboard.press("Meta+Enter");
+        for (let i = 0; i < 40 && userRuns() < before + 2; i++) await page.waitForTimeout(50);
+        assert.equal(userRuns(), before + 2);
+        assert.equal(await query.inputValue(), USER_QUERY, "Enter shortcuts insert no text");
+
+        // Result panel: read-only <pre>, focusable, vertically resizable, scrolls.
+        const rows = Array.from({ length: 300 }, (_, i) => ({ id: i, text: "x".repeat(240) }));
+        state.custom = {
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { rows } })
+        };
+        // A run is ignored while another is in flight, so let Meta+Enter finish.
+        await page.waitForFunction(() => !document.getElementById("gql-run").disabled);
+        await query.fill("query Custom { user { id } }");
+        await page.keyboard.press("Control+Enter");
+        await page.waitForFunction(() =>
+          document.getElementById("gql-result").textContent.includes('"rows"')
+        );
+        await output.scrollIntoViewIfNeeded();
+        const facts = await output.evaluate((e) => {
+          const style = getComputedStyle(e);
+          e.focus();
+          return {
+            tag: e.tagName,
+            resize: style.resize,
+            overflowX: style.overflowX,
+            overflowY: style.overflowY,
+            minHeight: parseFloat(style.minHeight),
+            editable: e.isContentEditable,
+            focusable: document.activeElement === e,
+            scrollsY: e.scrollHeight > e.clientHeight,
+            scrollsX: e.scrollWidth > e.clientWidth
+          };
+        });
+        assert.equal(facts.tag, "PRE");
+        assert.equal(facts.resize, "vertical");
+        assert.equal(facts.overflowX, "auto");
+        assert.equal(facts.overflowY, "auto");
+        assert.ok(facts.minHeight >= 64, "minimum height " + facts.minHeight);
+        assert.equal(facts.editable, false);
+        assert.equal(facts.focusable, true);
+        assert.equal(facts.scrollsY && facts.scrollsX, true, "large result scrolls both ways");
+        await output.evaluate((e) => {
+          e.scrollTop = e.scrollHeight;
+        });
+        assert.ok((await output.evaluate((e) => e.scrollTop)) > 0, "result scrolls");
+        await output.evaluate((e) => {
+          e.scrollTop = 0;
+        });
+        assert.match(await output.textContent(), /^\{\n  "data": \{\n    "rows": \[/);
+
+        async function dragCorner(locator, dy) {
+          await locator.scrollIntoViewIfNeeded();
+          const box = await locator.boundingBox();
+          const x = box.x + box.width - 4;
+          const y = box.y + box.height - 4;
+          await page.mouse.move(x, y);
+          await page.mouse.down();
+          await page.mouse.move(x, y + dy, { steps: 10 });
+          await page.mouse.up();
+          return locator.boundingBox();
+        }
+        const card = await page.locator("#graphiql-section").boundingBox();
+        const start = await output.boundingBox();
+        assert.ok(start.width <= card.width, "result stays inside the card");
+        const taller = await dragCorner(output, 120);
+        assert.ok(taller.height >= start.height + 80, `taller ${start.height} -> ${taller.height}`);
+        const shorter = await dragCorner(output, -(taller.height - 10));
+        assert.ok(shorter.height < taller.height - 80, "dragging up shrinks");
+        assert.ok(
+          Math.abs(shorter.height - facts.minHeight) <= 1.5,
+          `clamped to the minimum: ${shorter.height} vs ${facts.minHeight}`
+        );
+        const sideways = await output.boundingBox();
+        assert.equal(Math.round(sideways.width), Math.round(start.width), "no horizontal resize");
+        await page.mouse.move(sideways.x + sideways.width - 4, sideways.y + sideways.height - 4);
+        await page.mouse.down();
+        await page.mouse.move(sideways.x + sideways.width + 150, sideways.y + sideways.height - 4, { steps: 6 });
+        await page.mouse.up();
+        const afterSideways = await output.boundingBox();
+        assert.equal(Math.round(afterSideways.width), Math.round(start.width), "width is fixed");
+        assert.equal(await output.evaluate((e) => e.scrollHeight > e.clientHeight), true);
+
+        // Query and Variables still resize.
+        for (const [name, locator] of [["query", query], ["variables", variables]]) {
+          const first = await locator.boundingBox();
+          const grown = await dragCorner(locator, 80);
+          assert.ok(
+            grown.height >= first.height + 50,
+            `${name} textarea grows: ${first.height} -> ${grown.height}`
+          );
+        }
+
+        // No page-level horizontal overflow, including narrow phones.
+        for (const width of [320, 375, 1280]) {
+          await page.setViewportSize({ width, height: 1800 });
+          assert.equal(
+            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+            true,
+            "viewport " + width
+          );
+          const narrowCard = await page.locator("#graphiql-section").boundingBox();
+          const narrowResult = await output.boundingBox();
+          assert.ok(narrowResult.x + narrowResult.width <= narrowCard.x + narrowCard.width + 0.5);
+        }
+      }
+    );
+    await scenario(
       "signin, dashboard and playground timeout recovery",
       async ({ page, state, login, loaded }) => {
         state.signinHang = true;
@@ -712,7 +906,7 @@ const result = [];
         assert.equal(await page.locator("#xp-total").textContent(), "—");
         assert.equal(await page.locator("#skills-list").textContent(), "—");
         assert.equal(await page.locator("#recent-list").textContent(), "—");
-        assert.equal(await page.locator("#gql-query").inputValue(), "{ user { id login } }");
+        assert.equal(await page.locator("#gql-query").inputValue(), USER_QUERY);
       }
     );
 

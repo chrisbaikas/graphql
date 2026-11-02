@@ -1,5 +1,5 @@
 // Section 1: basic user identification.
-// Rendered from the app's NORMAL query: `{ user { id login } }`.
+// Rendered from the app's NORMAL query: `query User { user { id login } }`.
 
 import { fetchUser } from "../data/profile.js";
 import { reportSectionError } from "../ui/errors.js";

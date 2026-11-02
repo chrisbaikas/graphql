@@ -20,6 +20,93 @@ import * as QUERIES from "./data/queries.js";
 
 let activeRun = null;
 
+const INDENT = "  ";
+const MODIFIER_KEYS = ["Shift", "Control", "Alt", "Meta"];
+
+// Indent (or outdent) the line(s) a selection touches, and map the selection
+// onto the edited text. With a bare caret, Tab inserts the indent at the caret
+// instead. Outdent removes at most one tab or INDENT's worth of leading spaces,
+// so no other character is ever deleted.
+export function editIndentation(value, start, end, outdent) {
+  if (!outdent && start === end) {
+    const caret = start + INDENT.length;
+    return { value: value.slice(0, start) + INDENT + value.slice(end), start: caret, end: caret };
+  }
+
+  // A selection that ends at the very start of a line does not include that line.
+  const from = start === 0 ? 0 : value.lastIndexOf("\n", start - 1) + 1;
+  const last = end > start && value[end - 1] === "\n" ? end - 1 : end;
+  const lineEnd = value.indexOf("\n", last);
+  const to = lineEnd === -1 ? value.length : lineEnd;
+
+  // One mark per line: where it starts and how many characters were added
+  // (positive) or removed (negative) at that point.
+  const marks = [];
+  let at = from;
+  const lines = value.slice(from, to).split("\n").map((line) => {
+    let delta = 0;
+    if (outdent) delta = -(/^(?:\t| {1,2})/.exec(line)?.[0].length ?? 0);
+    else if (line) delta = INDENT.length;
+    marks.push({ at, delta });
+    at += line.length + 1;
+    return delta < 0 ? line.slice(-delta) : (delta ? INDENT : "") + line;
+  });
+
+  const move = (position) => marks.reduce((moved, { at: lineStart, delta }) => (
+    delta > 0
+      ? moved + (position > lineStart ? delta : 0)
+      : moved - Math.min(Math.max(position - lineStart, 0), -delta)
+  ), position);
+
+  return {
+    value: value.slice(0, from) + lines.join("\n") + value.slice(to),
+    start: move(start),
+    end: move(end)
+  };
+}
+
+// Keyboard handling for the query editor. Tab indents like a code editor, which
+// would trap keyboard users, so Esc then Tab hands that one Tab back to the
+// browser for normal focus movement. Pure modifier presses (the Shift of
+// Shift+Tab) must not cancel that Esc.
+export function createEditorKeys(run) {
+  let escaped = false;
+  return {
+    keydown(e) {
+      if (e.isComposing || MODIFIER_KEYS.includes(e.key)) return;
+
+      // Ctrl+Enter (Cmd+Enter on a Mac) runs without reaching for the mouse.
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        escaped = false;
+        e.preventDefault();
+        run();
+        return;
+      }
+      if (e.key === "Escape") {
+        escaped = true;
+        return;
+      }
+      if (e.key !== "Tab" || e.ctrlKey || e.metaKey || e.altKey) {
+        escaped = false;
+        return;
+      }
+      if (escaped) {
+        escaped = false;
+        return;
+      }
+
+      e.preventDefault();
+      const editor = e.target;
+      const edit = editIndentation(editor.value, editor.selectionStart, editor.selectionEnd, e.shiftKey);
+      editor.value = edit.value;
+      editor.setSelectionRange(edit.start, edit.end);
+    },
+    blur() {
+      escaped = false;
+    }
+  };
+}
+
 export function parseVariables(raw) {
   const variables = raw.trim() ? JSON.parse(raw) : {};
   if (!variables || typeof variables !== "object" || Array.isArray(variables)) {
@@ -161,8 +248,8 @@ export async function runPlaygroundQuery() {
   }
 }
 
-// Wire the playground once on load: the Run button, Ctrl/Cmd+Enter inside the
-// editor, and the example-query buttons.
+// Wire the playground once on load: the Run button, the editor's keys, and the
+// example-query buttons.
 export function setupPlayground() {
   const runBtn = document.getElementById("gql-run");
   const queryEl = document.getElementById("gql-query");
@@ -170,13 +257,9 @@ export function setupPlayground() {
 
   runBtn.addEventListener("click", runPlaygroundQuery);
 
-  // Ctrl+Enter (Cmd+Enter on a Mac) runs without reaching for the mouse.
-  queryEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      runPlaygroundQuery();
-    }
-  });
+  const editorKeys = createEditorKeys(runPlaygroundQuery);
+  queryEl.addEventListener("keydown", editorKeys.keydown);
+  queryEl.addEventListener("blur", editorKeys.blur);
 
   // Example buttons load a query into the editor; the user still presses Run,
   // so nothing fires against the endpoint unasked.

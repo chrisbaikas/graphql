@@ -433,12 +433,17 @@ kbd {
   margin-top: 12px;
 }
 
-/* The result can be long or wide: cap the height and let it scroll, so the
-   panel never pushes the rest of the dashboard off-screen. */
+/* The result can be long or wide: give it a fixed starting height and let it
+   scroll, so it never pushes the rest of the dashboard off-screen. Dragging the
+   corner resizes it vertically; a minimum keeps it usable. */
 .gql-result {
+  box-sizing: border-box;
+  width: 100%;
   margin: 0;
   padding: 10px;
-  max-height: 320px;
+  height: 240px;
+  min-height: 96px;
+  resize: vertical;
   overflow: auto;
   background: #0f172a;
   border: 1px solid #334155;

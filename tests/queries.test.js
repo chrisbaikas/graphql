@@ -95,3 +95,17 @@ test("LEVEL is scoped to the cursus root and selects path", () => {
 test("AUDIT_TOTALS is not path-scoped", () => {
   assert.ok(!QUERIES.AUDIT_TOTALS.includes("path:"));
 });
+
+test("USER is the multiline NORMAL query: named, no arguments, no nested object", () => {
+  assert.equal(QUERIES.USER, "query User {\n  user {\n    id\n    login\n  }\n}");
+  assert.ok(QUERIES.USER.includes("\n"));
+  assert.ok(!QUERIES.USER.includes("("), "a normal query takes no arguments");
+  const depth = [...QUERIES.USER].reduce(
+    ([now, max], char) => {
+      const next = now + (char === "{" ? 1 : char === "}" ? -1 : 0);
+      return [next, Math.max(max, next)];
+    },
+    [0, 0]
+  )[1];
+  assert.equal(depth, 2, "operation body plus the user selection only");
+});

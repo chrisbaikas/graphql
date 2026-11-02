@@ -1,6 +1,6 @@
 # Reproducible browser verification
 
-`tests/browser/run.cjs` runs 14 scenario groups against synthetic API responses.
+`tests/browser/run.cjs` runs 15 scenario groups against synthetic API responses.
 It starts its own static server on a free loopback port, intercepts every platform
 request, and closes the browser/server on completion or failure. No real account,
 credentials, platform requests, screenshots or browser profiles are needed.
@@ -51,6 +51,14 @@ installed Chromium. It exits nonzero on a failed assertion or unexpected error.
     loaded chart activation, section controls, skill values and complete reset.
 14. A real local HTTP response whose headers arrive but body stalls: the shared
     body reader must report `TimeoutError`.
+15. GraphiQL editor: multiline `User` on load and from its example button;
+    Tab / Shift+Tab indentation with caret and selection preserved; Esc then Tab
+    (and Esc then Shift+Tab) moving focus out; Variables left to normal Tab
+    navigation; Ctrl+Enter and Cmd+Enter running the query; and the read-only,
+    focusable Result `<pre>` scrolling and resizing vertically (not horizontally)
+    down to its minimum height, alongside Query/Variables resizing, with no page
+    overflow at 320/375/1280px. Resize drags run in a tall viewport because a
+    synthetic pointer leaving the window is not captured.
 
 The harness checks page exceptions, unexpected console errors and missing local
 assets. Deliberately injected API HTTP/network failures are expected console
@@ -70,11 +78,11 @@ with a real account for T13 and test the public deployment for T12.
 
 ## Latest verification — 2026-10-26
 
-`make test` and `make check` passed **123 tests**, with zero failures or skips.
-The commands above passed **14/14 scenario groups in Chromium** and **14/14 in
+`make test` and `make check` passed **138 tests**, with zero failures or skips.
+The commands above passed **15/15 scenario groups in Chromium** and **15/15 in
 Firefox**, using Playwright 1.62.1 outside the repository. The restricted sandbox
 initially reported only ten file-level results; the unrestricted Node runner
-executed all 123 individual tests.
+executed all individual tests.
 
 Additional real-network checks against
 https://chrisbaikas.github.io/graphql/ passed in both browsers: HTTPS,
