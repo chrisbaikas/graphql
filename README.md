@@ -15,7 +15,7 @@ that the browser loads natively. No build step, no dependencies, no framework.
 
 ```
 index.html        # login + dashboard views
-css/             # base, login, dashboard, playground, charts, modal
+css/              # base, login, dashboard, playground, charts, modal
 js/
   main.js         # entry point: wiring + routing
   config.js       # domain, derived URLs, display constants
@@ -65,7 +65,7 @@ node --test tests/*.test.js
 
 Optional Chromium/Firefox regressions: `make test-browser`, using Playwright
 installed outside the repository. See [browser verification](docs/browser-verification.md)
-for exact setup, commands and the 14 covered scenario groups.
+for exact setup, commands and the 15 covered scenario groups.
 
 Requires Node 22.7 or newer for native ES module detection without package
 metadata. The tests import the same modules the browser loads and stub API

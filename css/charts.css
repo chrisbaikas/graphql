@@ -56,7 +56,7 @@
 /* ---- Graph entrance animations ----
    Each graph is rebuilt from scratch on every render, so these run once as the
    new nodes are inserted — there is no state to reset and no JS involved. The
-   reduced-motion rule above removes animations, showing the final frame
+   reduced-motion rule in base.css removes animations, showing the final frame
    immediately without waiting for any animation delay. */
 
 /* Vertical bars (audit graph) grow up from the baseline. */

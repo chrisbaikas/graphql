@@ -17,7 +17,6 @@ export function fakeDocument(ids) {
       {
         value: "",
         textContent: "",
-        innerHTML: "",
         disabled: false,
         hidden: false,
         style: {},
