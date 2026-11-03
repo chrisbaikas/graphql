@@ -1,0 +1,83 @@
+/* ---- GraphiQL playground (Ticket 16) ---- */
+/* #94a3b8, not a dimmer grey: at 5.71:1 on the card background this clears
+   WCAG AA for body text, where #64748b only reached 3.07:1. */
+.hint {
+  color: #94a3b8;
+  font-size: 0.9em;
+}
+
+kbd {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.85em;
+}
+
+.gql-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.gql-label {
+  display: block;
+  margin: 12px 0 6px;
+  color: #94a3b8;
+}
+
+/* Monospace so query indentation and JSON line up. */
+.gql-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  resize: vertical;
+}
+
+.gql-input:focus-visible {
+  outline-offset: -1px;
+}
+
+.gql-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* The result can be long or wide: give it a fixed starting height and let it
+   scroll, so it never pushes the rest of the dashboard off-screen. Dragging the
+   corner resizes it vertically; a minimum keeps it usable. */
+.gql-result {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 10px;
+  height: 240px;
+  min-height: 96px;
+  resize: vertical;
+  overflow: auto;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Narrow screens: let the run row wrap rather than squeezing the status text. */
+@media (max-width: 420px) {
+  .gql-actions {
+    flex-wrap: wrap;
+  }
+}

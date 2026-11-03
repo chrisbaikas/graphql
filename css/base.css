@@ -1,0 +1,66 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  margin: 0;
+  padding: 20px;
+}
+
+section {
+  margin: auto;
+}
+
+/* One visible focus ring for every interactive element — keyboard users need
+   to see where they are. :focus-visible so a mouse click doesn't leave a ring
+   behind. */
+:where(button, a, input, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px 15px;
+  cursor: pointer;
+  background: #38bdf8;
+  color: #0f172a;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #0ea5e9;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error message (login + section errors) */
+.error {
+  color: #f87171;
+  margin: 12px 0 0;
+  min-height: 1.2em;
+  text-align: center;
+}
+
+/* The dashboard starts hidden. A class rather than an inline style attribute
+   on the element, which the page's `style-src 'self'` CSP would block.
+   showDashboard()/showLogin() then drive display from JS. */
+.view-hidden {
+  display: none;
+}
+
+/* Honour a reduced-motion preference: no transitions or animations for users
+   who have asked the OS to limit them. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

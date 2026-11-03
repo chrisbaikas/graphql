@@ -1,0 +1,56 @@
+/* ---- Login view: centred card ---- */
+/* Centre the login card within the viewport, allowing for body padding. */
+#login-view {
+  min-height: calc(100vh - 40px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 24px 28px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.login-card h1 {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.login-card label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.login-card input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 9px 12px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font: inherit;
+}
+
+.login-card input::placeholder {
+  color: #94a3b8;
+}
+
+.login-card input:focus {
+  border-color: #38bdf8;
+}
+
+.login-card #login-btn {
+  width: 100%;
+  margin-top: 16px;
+}

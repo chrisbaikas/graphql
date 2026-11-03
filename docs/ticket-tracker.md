@@ -86,7 +86,7 @@ view) so every later ticket has a place to live.
 
 ### Tasks
 - [x] Initialise git repository
-- [x] Create file structure: `index.html`, `css/style.css`, `js/` (originally a
+- [x] Create file structure: `index.html`, `css/`, `js/` (originally a
   single `js/app.js`; split into ES modules under `js/` in the modular refactor)
 - [x] Build the two-view skeleton (`#login-view`, `#dashboard-view`)
 - [x] Wire `index.html` to the CSS and JS files
@@ -615,7 +615,7 @@ password (verified by scanning the tracked files). The deployable set is:
 
 ```
 index.html
-css/style.css
+css/         # the six stylesheets linked from index.html
 js/          # the whole directory — the app loads as ES modules
 .nojekyll    # bypass Jekyll on GitHub Pages
 ```

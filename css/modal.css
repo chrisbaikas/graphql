@@ -1,0 +1,50 @@
+/* ---- Graph zoom modal (lightbox) ---- */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.modal-open { overflow: hidden; }
+
+.modal-content {
+  box-sizing: border-box;
+  position: relative;
+  background: #1e293b;
+  border-radius: 8px;
+  padding: 48px 24px 24px;
+  width: min(calc(100vw - 32px), 900px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+
+.modal-content svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}

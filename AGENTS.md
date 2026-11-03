@@ -32,7 +32,13 @@ Read these before making changes:
 
 ```
 index.html          # login view (#login-view) + dashboard view (#dashboard-view)
-css/style.css       # styles (one file on purpose — see below)
+css/                # plain stylesheets, linked from index.html in this order:
+  base.css          #   body, focus ring, buttons, .error, .view-hidden, reduced motion
+  login.css         #   #login-view and the login card
+  dashboard.css     #   header, controls, cards, info/recent/skills lists, link buttons
+  playground.css    #   the GraphiQL card
+  charts.css        #   graph layout, SVG sizing, entrance animations
+  modal.css         #   graph zoom lightbox
 js/
   main.js           # ENTRY POINT: wiring + routing, nothing else
   config.js         # DOMAIN/URLs, display constants, sessionStorage key
@@ -84,8 +90,15 @@ tests/browser/      # optional browser regression harness (external Playwright)
   `graphql -> auth -> views -> sections -> graphql`. `main.js` registers
   the logout/error callback there once at start-up. New session generations also
   abort their predecessor's requests through `sessionSignal()`.
-- **`css/style.css` stays one file.** Splitting it means extra `<link>` requests
-  or serialised `@import`s, and there is no build step to concatenate.
+- **CSS is split by view/feature, linked individually from `index.html`** (no
+  `@import`, which would serialise requests; no build step to concatenate).
+  **Link order is part of the cascade — keep `base.css` first.** The global
+  `:focus-visible` ring (`border-radius: 4px`, specificity 0,1,0) is overridden
+  by `.gql-input` and `.graph-box` (also 0,1,0, `6px`) only because those files
+  load after it. `@media (prefers-reduced-motion)` lives in `base.css` and uses
+  `!important`, so it covers animations defined in every later file. The
+  `max-width: 420px` block is deliberately split between `dashboard.css` and
+  `playground.css`, each after the base rules it overrides.
 
 ## Run / verify
 

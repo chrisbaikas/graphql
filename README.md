@@ -15,7 +15,7 @@ that the browser loads natively. No build step, no dependencies, no framework.
 
 ```
 index.html        # login + dashboard views
-css/style.css     # styles
+css/             # base, login, dashboard, playground, charts, modal
 js/
   main.js         # entry point: wiring + routing
   config.js       # domain, derived URLs, display constants
