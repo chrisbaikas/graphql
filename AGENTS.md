@@ -65,7 +65,6 @@ Makefile            # `make run` -> python3 -m http.server
 docs/               # instructions, audit criteria, ticket tracker
 tests/              # dependency-free Node helper/data/transport tests
 tests/browser/      # optional browser regression harness (external Playwright)
-.github/prompts/    # self-audit prompt
 ```
 
 ### Architecture rules
