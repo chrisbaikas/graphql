@@ -1,6 +1,5 @@
-// Bonus — Skills breakdown: extra information beyond the three mandatory
-// sections. Rendered as labelled bars, not an SVG graph, so it stays distinct
-// from the Statistics section.
+// Skills breakdown: additional profile information. Rendered as labelled bars,
+// not an SVG graph, so it stays distinct from the Statistics section.
 //
 // Defensive by design: the query matches `skill_%` with `_like`, so if this
 // platform exposes no skill rows at all the card shows an empty state instead

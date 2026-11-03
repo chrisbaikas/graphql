@@ -80,7 +80,7 @@
     <p id="dashboard-error" class="error" role="alert" hidden></p>
 
     <div id="profile">
-      <!-- Section 1: User identification -->
+      <!-- User identification -->
       <details id="user-section" class="card" open>
         <summary><h2>User</h2></summary>
         <dl class="info">
@@ -91,7 +91,7 @@
         </dl>
       </details>
 
-      <!-- Section 2: XP -->
+      <!-- XP -->
       <details id="xp-section" class="card" open>
         <summary><h2>XP</h2></summary>
         <dl class="info">
@@ -113,7 +113,7 @@
         </button>
       </details>
 
-      <!-- Section 3: Audits -->
+      <!-- Audit ratio -->
       <details id="grades-section" class="card" open>
         <summary><h2>Audit ratio</h2></summary>
         <dl class="info">
@@ -126,7 +126,7 @@
         </dl>
       </details>
 
-      <!-- Recent projects (uses a nested GraphQL query — Ticket 8) -->
+      <!-- Recent projects — populated with a nested GraphQL query -->
       <details id="recent-section" class="card" open>
         <summary><h2>Recent projects</h2></summary>
         <ul id="recent-list" class="recent">
@@ -138,9 +138,9 @@
         </button>
       </details>
 
-      <!-- Bonus: Skills breakdown (Ticket 14) — extra info beyond the three
-           mandatory sections. Rendered as labelled bars, not an SVG graph, so
-           it stays distinct from the Statistics section. -->
+      <!-- Skills breakdown — additional profile information. Rendered as
+           labelled bars, not an SVG graph, so it stays distinct from the
+           Statistics section. -->
       <details id="skills-section" class="card" open>
         <summary><h2>Skills</h2></summary>
         <ul id="skills-list" class="skills">
@@ -152,7 +152,7 @@
         </button>
       </details>
 
-      <!-- Section 4: Statistics — SVG graphs (Tickets 9/10/11) -->
+      <!-- Statistics — SVG graphs -->
       <details id="stats-section" class="card" open>
         <summary><h2>Statistics</h2></summary>
         <div class="graphs">
@@ -168,7 +168,7 @@
               <p class="graph-placeholder">—</p>
             </div>
           </figure>
-          <!-- Bonus third graph (Ticket 15) -->
+          <!-- Additional XP-by-project graph -->
           <figure class="graph graph-wide">
             <figcaption>XP by project</figcaption>
             <div id="graph-projects" class="graph-box">
@@ -182,7 +182,7 @@
         </div>
       </details>
 
-      <!-- Bonus: in-app GraphiQL (Ticket 16) — run arbitrary queries against
+      <!-- In-app GraphiQL playground — run arbitrary queries against
            the platform endpoint with the logged-in user's JWT. Collapsed by
            default so it doesn't compete with the profile itself. -->
       <details id="graphiql-section" class="card">

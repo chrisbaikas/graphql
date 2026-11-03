@@ -1,6 +1,6 @@
 // Recent projects — rendered from the app's NESTED query (each result carries
 // the related `object` with its name and type). The nesting earns its place in
-// the UI rather than existing only to satisfy the requirement.
+// the UI rather than existing only to demonstrate nested queries.
 
 import { RECENT_VISIBLE } from "../config.js";
 import { fetchRecentProjects } from "../data/profile.js";

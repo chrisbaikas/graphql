@@ -1,9 +1,9 @@
 /* ---------------- SVG PRIMITIVES ---------------- */
 //
-// Everything in this file is hand-written SVG construction. The audit requires
-// the graphs be drawn as SVG by the project itself — not <canvas>, not images,
-// not a charting library — so this module is that proof: a handful of DOM
-// helpers and shared geometry, with no third-party code behind them.
+// Everything in this file is hand-written SVG construction. The graphs are
+// drawn as SVG by the project itself — not <canvas>, not images, not a
+// charting library — so this module is just a handful of DOM helpers and
+// shared geometry, with no third-party code behind them.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 

@@ -7,8 +7,8 @@ import { formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
 import { currentSession, isCurrentSession } from "../core/session.js";
 
-// Vertical bar chart — a deliberately different chart type from the line chart,
-// as the audit requires. Shares its totals with the audit card via the cache.
+// Vertical bar chart — a deliberately different chart type from the line chart.
+// Shares its totals with the audit card via the cache.
 export async function drawAuditGraph() {
   const box = document.getElementById("graph-audit");
   if (!box) return;

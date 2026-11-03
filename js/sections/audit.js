@@ -1,4 +1,4 @@
-// Section 3: audit ratio (XP given vs received), matching the platform
+// Audit ratio (XP given vs received), matching the platform
 // profile's "Done" (up) / "Received" (down) figures.
 
 import { fetchAuditTotals } from "../data/profile.js";

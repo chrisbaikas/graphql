@@ -1,4 +1,4 @@
-// Section 2: total XP, the current level, and the transactions the total is
+// Total XP, the current level, and the transactions the total is
 // summed from. The XP rows come from the same request the XP graph uses; the
 // level is a separate query (its own transaction type).
 

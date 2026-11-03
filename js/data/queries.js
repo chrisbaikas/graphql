@@ -1,8 +1,8 @@
 /* ---------------- GRAPHQL QUERIES ---------------- */
 //
-// Every query the dashboard sends, in one place, so an auditor can read the
-// full set without hunting through render code — and so the three required
-// query forms are visible side by side:
+// Every query the dashboard sends, in one place, so the full set can be read
+// without hunting through render code — and so the three query forms the app
+// uses are visible side by side:
 //
 //   NORMAL           -> USER
 //   NESTED           -> XP_TRANSACTIONS, RECENT_PROJECTS  (object { ... } inside)
