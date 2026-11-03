@@ -48,3 +48,9 @@
   line-height: 1;
   cursor: pointer;
 }
+
+/* Same cascade trap as .link-btn:hover — `button:hover` would fill the close
+   button with sky blue behind its light-grey ×, at ~2.3:1 contrast. */
+.modal-close:hover {
+  background: transparent;
+}

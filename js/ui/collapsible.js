@@ -23,6 +23,14 @@ function setExpanded(listId, toggleId, expanded, hiddenCount) {
   toggle.setAttribute("aria-expanded", String(expanded));
 }
 
+// Replace a list's contents with one message row ("—", "No XP yet.", ...).
+// Built with textContent so no caller needs to write markup.
+export function setListMessage(listEl, text) {
+  const item = document.createElement("li");
+  item.textContent = text;
+  listEl.replaceChildren(item);
+}
+
 // Mark rows past `visible` as overflow and show the toggle only when some are
 // actually hidden. Call after rendering a list's rows.
 export function applyOverflow(listId, toggleId, rowSelector, visible) {

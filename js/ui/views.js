@@ -2,7 +2,7 @@
 import { showGraphPlaceholder } from "../charts/display.js";
 import { clearProfileCache } from "../data/profile.js";
 import { resetProjectsCache } from "../charts/projectsGraph.js";
-import { resetAllOverflow } from "./collapsible.js";
+import { resetAllOverflow, setListMessage } from "./collapsible.js";
 import { resetPlayground } from "../playground.js";
 import { clearDashboardError } from "./errors.js";
 import { newSession } from "../core/session.js";
@@ -64,9 +64,7 @@ function renderPlaceholders(text) {
   for (const [listId] of COLLAPSIBLE_LISTS) {
     const list = document.getElementById(listId);
     if (!list) continue;
-    const item = document.createElement("li");
-    item.textContent = text;
-    list.replaceChildren(item);
+    setListMessage(list, text);
   }
 
   const profile = document.getElementById("profile");

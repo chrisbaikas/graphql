@@ -4,7 +4,7 @@
 
 import { XP_VISIBLE } from "../config.js";
 import { fetchLevel, fetchTotalXp, fetchXpBreakdown } from "../data/profile.js";
-import { applyOverflow, resetOverflow } from "../ui/collapsible.js";
+import { applyOverflow, resetOverflow, setListMessage } from "../ui/collapsible.js";
 import { formatXp } from "../ui/format.js";
 import { reportSectionError } from "../ui/errors.js";
 import { currentSession, isCurrentSession } from "../core/session.js";
@@ -30,11 +30,11 @@ export async function loadXpSection() {
     if (countEl) countEl.textContent = String(rows.length);
 
     if (!listEl) return;
-    listEl.innerHTML = "";
+    listEl.replaceChildren();
     resetOverflow("xp-list", "xp-toggle");
 
     if (!rows.length) {
-      listEl.innerHTML = "<li>No XP yet.</li>";
+      setListMessage(listEl, "No XP yet.");
       return;
     }
 
@@ -54,7 +54,7 @@ export async function loadXpSection() {
     if (totalEl) totalEl.textContent = "—";
     if (countEl) countEl.textContent = "—";
     if (listEl) {
-      listEl.innerHTML = "<li>—</li>";
+      setListMessage(listEl, "—");
       resetOverflow("xp-list", "xp-toggle");
     }
     reportSectionError("Could not load XP", err);

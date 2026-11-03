@@ -258,6 +258,12 @@ const USER_QUERY = "query User {\n  user {\n    id\n    login\n  }\n}";
         assert.equal(await page.evaluate(() => localStorage.getItem("token")), null);
         await page.locator("#xp-toggle").click();
         assert.equal(await page.locator("#xp-list li:visible").count(), 12);
+        // Hover must not paint button:hover's sky-blue fill behind sky-blue link text.
+        await page.locator("#xp-toggle").hover();
+        assert.equal(
+          await page.locator("#xp-toggle").evaluate((e) => getComputedStyle(e).backgroundColor),
+          "rgba(0, 0, 0, 0)"
+        );
         for (const width of [320, 375, 768, 1280, 1920]) {
           await page.setViewportSize({ width, height: 800 });
           assert.equal(
@@ -270,6 +276,11 @@ const USER_QUERY = "query User {\n  user {\n    id\n    login\n  }\n}";
         await page.locator("#graph-xp").focus();
         await page.keyboard.press("Enter");
         assert.equal(await page.locator("#app").evaluate((e) => e.inert), true);
+        await page.locator("#modal-close").hover();
+        assert.equal(
+          await page.locator("#modal-close").evaluate((e) => getComputedStyle(e).backgroundColor),
+          "rgba(0, 0, 0, 0)"
+        );
         await page.keyboard.press("Tab");
         assert.equal(await page.evaluate(() => document.activeElement.id), "modal-close");
         await page.keyboard.press("Escape");

@@ -31,7 +31,8 @@ installed Chromium. It exits nonzero on a failed assertion or unexpected error.
 ## Coverage
 
 1. Initial state, UTF-8/email login, capped pagination, card totals, three SVGs,
-   overflow controls, keyboard modal and logout cleanup.
+   overflow controls, link-button and modal-close hover backgrounds, keyboard
+   modal and logout cleanup.
 2. Invalid credentials, sign-in 500, malformed JWT, injected network failure,
    recovery and refresh.
 3. Dashboard query failure isolation and 403 preserving the session.
@@ -100,3 +101,15 @@ independent platform GraphiQL comparisons all passed. Live graph/modal labels
 also passed the five widths above, including keyboard focus and reduced motion.
 T12/T13 are now DONE; see the [dated live-account evidence](data-verification.md#live-account-results--2026-10-26).
 The synthetic results above remain separate from that real-account verification.
+
+## Post-CSS-split audit — 2026-11-03
+
+After `css/style.css` was split into six files, computed styles, geometry,
+focus/hover states, animation properties and screenshots were compared with the
+pre-split commit in Chromium and Firefox at 320/375/420/421/560/561/768/1280/1920px.
+Only one difference existed, and it predated the split: `button:hover` (0,1,1)
+outranked `.link-btn` and `.modal-close` (0,1,0), so hovering "Show more" and the
+GraphiQL example buttons painted a sky-blue fill behind sky-blue text, and the
+modal close × got a ~2.3:1 fill. Both now keep a transparent background on hover
+(scenario 1 asserts it). Static `innerHTML` writes were replaced with
+`replaceChildren()` and no `innerHTML` remains in `js/`.

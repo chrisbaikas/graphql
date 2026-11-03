@@ -13,7 +13,7 @@ export function closeGraphModal(restoreFocus = true) {
   const app = document.getElementById("app");
   if (app) app.inert = false;
   document.body.classList.remove("modal-open");
-  if (body) body.innerHTML = "";
+  if (body) body.replaceChildren();
   if (restoreFocus && lastTrigger) lastTrigger.focus();
   lastTrigger = null;
 }
@@ -25,8 +25,7 @@ export function setupGraphModal() {
   if (!modal || !body || !closeBtn) return;
 
   function openModal(svg, trigger) {
-    body.innerHTML = "";
-    body.appendChild(svg.cloneNode(true));
+    body.replaceChildren(svg.cloneNode(true));
     modal.hidden = false;
     const app = document.getElementById("app");
     if (app) app.inert = true;

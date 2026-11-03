@@ -225,6 +225,12 @@
   text-decoration: underline;
 }
 
+/* `button:hover` (0,1,1) would otherwise paint its sky-blue fill behind this
+   sky-blue text on hover, hiding it. The underline is the hover cue. */
+.link-btn:hover {
+  background: none;
+}
+
 /* Narrow screens: give long skill names room by letting them sit above their
    bar. */
 @media (max-width: 420px) {
